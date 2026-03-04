@@ -17,10 +17,9 @@
 source("scripts/00_setup.R")
 
 message("\n=== Loading MDF results from 03 ===")
-load(file.path(output_dir, "03_mdf_results.RData"))
-
-# Also load allan deviation data for instrument comparison
+# Load 02 first so that 03's df (with MDF columns) takes precedence
 load(file.path(output_dir, "02_allan_deviation.RData"))
+load(file.path(output_dir, "03_mdf_results.RData"))
 
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 
