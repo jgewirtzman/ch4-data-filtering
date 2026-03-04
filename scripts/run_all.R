@@ -37,6 +37,9 @@ source("scripts/07_treatment_comparison.R")
 # 08: Transformation comparison (raw vs log vs arcsinh)
 source("scripts/08_transformation_comparison.R")
 
+# 09: MDF detection rate, threshold distribution, and duration figures
+source("scripts/09_mdf_figures.R")
+
 message("\n============================================================")
 message("Pipeline complete!")
 message("End time: ", Sys.time())
