@@ -30,4 +30,9 @@ Fig. S13,2.3,Rolling window quiet-period selection (YMF CH4),rolling_window_YMF_
 Fig. S14,2.3,Rolling window quiet-period selection (YMF CO2),rolling_window_YMF_CO2,precision,04_canopy_filter_sensitivity.R,supplementary
 Fig. S15,3.1,Allan deviation per-measurement distributions (CH4),allan_deviation_CH4,precision,04_canopy_filter_sensitivity.R,supplementary
 Fig. S16,3.1,Allan deviation per-measurement distributions (CO2),allan_deviation_CO2,precision,04_canopy_filter_sensitivity.R,supplementary
+Fig. 16,4.5,Quality filter exclusion rates by month (seasonal confounding),seasonal_fraction_flagged,,10_seasonal_confounding.R,main
+Fig. 17,4.5,|CH4 flux| vs R2 colored by temperature (R2 selection bias),r2_vs_flux_by_temperature,,10_seasonal_confounding.R,main
+Fig. 18,4.5,Time-series colored by filter status (temporal clustering),timeseries_filter_status,,10_seasonal_confounding.R,main
+Fig. 19,4.5,Flux vs air temperature by filter status (ecological confounding),flux_vs_temperature_filter_status,,10_seasonal_confounding.R,main
+Fig. 20,4.4/7,Cumulative annual budget under different filter treatments,cumulative_annual_budget,,10_seasonal_confounding.R,main
 Fig. S17,3.2,MDF detection rates: all datasets combined,mdf_detection_rates_all,,09_mdf_figures.R,supplementary

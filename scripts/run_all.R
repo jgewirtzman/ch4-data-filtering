@@ -40,6 +40,9 @@ source("scripts/08_transformation_comparison.R")
 # 09: MDF detection rate, threshold distribution, and duration figures
 source("scripts/09_mdf_figures.R")
 
+# 10: Seasonal confounding figures (filter exclusion by month, R² vs flux, etc.)
+source("scripts/10_seasonal_confounding.R")
+
 message("\n============================================================")
 message("Pipeline complete!")
 message("End time: ", Sys.time())
