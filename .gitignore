@@ -1,0 +1,19 @@
+# Large raw instrument data (>650 MB)
+data/stem_raw/7810/
+data/stem_raw/LGR/
+
+# RData intermediate outputs (reproducible from scripts)
+outputs/*.RData
+
+# Rendered documents (reproducible from .qmd)
+manuscript/*.pdf
+manuscript/*.docx
+manuscript/*.tex
+
+# R session files
+.Rhistory
+.RData
+.Rproj.user/
+
+# OS files
+.DS_Store
