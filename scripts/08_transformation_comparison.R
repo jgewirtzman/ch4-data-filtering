@@ -41,11 +41,10 @@ hf_flux <- hf_out %>%
   filter(!is.na(CH4_best.flux)) %>%
   mutate(flux = CH4_best.flux, dataset = "Tree canopy (HF)")
 
-# Combine
+# Combine (two datasets only; canopy dropped for clarity)
 all_data <- bind_rows(
   soil %>% select(flux, dataset),
-  tree_stem %>% select(flux, dataset),
-  hf_flux %>% select(flux, dataset)
+  tree_stem %>% select(flux, dataset)
 )
 
 # ── Summary statistics ───────────────────────────────────────────────────────
@@ -103,7 +102,7 @@ transform_long <- transform_data %>%
                                   "log10 (drops negatives)",
                                   "arcsinh (preserves all)")),
     dataset = factor(dataset,
-                     levels = c("Wetland soil", "Tree stem (YMF)", "Tree canopy (HF)"))
+                     levels = c("Wetland soil", "Tree stem (YMF)"))
   )
 
 # Count retained vs dropped per panel
@@ -124,40 +123,101 @@ panel_counts <- transform_long %>%
   )
 
 # Main figure: faceted histograms
+# Use facet_wrap (not facet_grid) so each panel gets independent y-axes,
+# since sample sizes differ dramatically across dataset-transform combos
+# (e.g. log10 drops 83% of wetland soil but only 10% of canopy)
+
+# Create combined facet label
+transform_long <- transform_long %>%
+  mutate(
+    panel_label = paste0(dataset, "\n", transform),
+    panel_label = factor(panel_label,
+      levels = as.vector(t(outer(
+        levels(dataset),
+        levels(transform),
+        function(d, t) paste0(d, "\n", t)
+      )))
+    )
+  )
+
+# Update panel_counts to match
+panel_counts <- panel_counts %>%
+  mutate(
+    panel_label = paste0(dataset, "\n", transform),
+    panel_label = factor(panel_label, levels = levels(transform_long$panel_label))
+  )
+
+# Compute back-transformed mean and median for each panel
+# Back-transform each value individually, then take mean/median
+bt_stats <- transform_long %>%
+  filter(!is.na(value)) %>%
+  mutate(
+    bt_value = case_when(
+      grepl("Raw", transform)     ~ value,
+      grepl("log10", transform)   ~ 10^value,
+      grepl("arcsinh", transform) ~ sinh(value)
+    )
+  ) %>%
+  group_by(dataset, transform, panel_label) %>%
+  summarise(
+    bt_mean   = mean(bt_value),
+    bt_median = median(bt_value),
+    .groups = "drop"
+  )
+
+cat("\n=== Back-transformed summary statistics ===\n")
+bt_stats %>% print(width = 100)
+
+# Merge back-transformed stats into panel_counts for a single top-right annotation
+panel_counts <- panel_counts %>%
+  left_join(bt_stats %>% select(dataset, transform, bt_mean, bt_median),
+            by = c("dataset", "transform")) %>%
+  mutate(
+    label = ifelse(n_dropped > 0,
+                   paste0("n = ", n_valid, " / ", n_total,
+                          " (", n_dropped, " dropped, ",
+                          round(100 * n_dropped / n_total), "%)",
+                          "\nmean = ", round(bt_mean, 3),
+                          "  med = ", round(bt_median, 3)),
+                   paste0("n = ", n_valid,
+                          "\nmean = ", round(bt_mean, 3),
+                          "  med = ", round(bt_median, 3)))
+  )
+
 p_hist <- ggplot(transform_long, aes(x = value)) +
   geom_histogram(aes(fill = dataset), bins = 40, alpha = 0.8, color = "grey30", linewidth = 0.2) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey40", linewidth = 0.4) +
-  facet_grid(dataset ~ transform, scales = "free") +
+  facet_wrap(~ panel_label, ncol = 3, scales = "free") +
   geom_text(
     data = panel_counts,
     aes(label = label),
-    x = Inf, y = Inf, hjust = 1.05, vjust = 1.3,
-    size = 2.8, color = "grey20", inherit.aes = FALSE
+    x = Inf, y = Inf, hjust = 1.05, vjust = 1.1,
+    size = 2.6, color = "grey20", inherit.aes = FALSE
   ) +
   scale_fill_manual(values = c(
     "Wetland soil" = "#2166AC",
-    "Tree stem (YMF)" = "#4DAF4A",
-    "Tree canopy (HF)" = "#E69F00"
+    "Tree stem (YMF)" = "#4DAF4A"
   )) +
+  scale_y_sqrt() +
   labs(
     x = "CH4 flux (transformed value)",
-    y = "Count",
+    y = "Count (sqrt scale)",
     title = "Effect of data transformation on CH4 flux distributions",
-    subtitle = "log10 silently drops negative values; arcsinh preserves the full distribution"
+    subtitle = "log10 silently drops negative values; arcsinh preserves the full distribution\nmean/median back-transformed to original units (nmol m\u207b\u00b2 s\u207b\u00b9)"
   ) +
   theme_bw(base_size = 11) +
   theme(
     legend.position = "none",
-    strip.text = element_text(size = 10, face = "bold"),
+    strip.text = element_text(size = 9, face = "bold"),
     plot.title = element_text(size = 13, face = "bold"),
     plot.subtitle = element_text(size = 10, color = "grey30"),
     panel.grid.minor = element_blank()
   )
 
 ggsave(file.path(fig_dir, "ch4_transform_comparison.png"), p_hist,
-       width = 12, height = 8, dpi = 300)
+       width = 12, height = 6, dpi = 300)
 ggsave(file.path(fig_dir, "ch4_transform_comparison.pdf"), p_hist,
-       width = 12, height = 8)
+       width = 12, height = 6)
 cat("\nSaved: ch4_transform_comparison.png/pdf\n")
 
 # ── FIGURE 2: QQ-plot comparison ────────────────────────────────────────────

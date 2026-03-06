@@ -510,9 +510,12 @@ allan_summary <- data.frame(
 
 precision_summary <- rbind(precision_summary, allan_summary)
 
-# Rename for display
-precision_summary$source <- sub("^GLA131.*", "GLA131 spec", precision_summary$source)
-precision_summary$source <- sub("^YMF$", "LGR3-YMF", precision_summary$source)
+# Rename for display (anonymized: GLA131 -> Analyzer A, individual units -> A-1/A-2/A-3)
+precision_summary$source <- sub("^GLA131.*", "Analyzer A spec", precision_summary$source)
+precision_summary$source <- sub("^LGR1$", "A-1", precision_summary$source)
+precision_summary$source <- sub("^LGR2$", "A-2", precision_summary$source)
+precision_summary$source <- sub("^LGR3$", "A-3", precision_summary$source)
+precision_summary$source <- sub("^YMF$", "A-3 (YMF)", precision_summary$source)
 
 write.csv(precision_summary,
           file.path(output_dir, "precision_comparison.csv"),

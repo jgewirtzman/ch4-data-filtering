@@ -3,7 +3,7 @@ Fig. 1,3.1,CH4 precision: manufacturer vs empirical (bar chart),precision_compar
 Fig. 2,4.3,Component flux ridgelines by MDF filter,component_flux_by_mdf_filter,precision,04_canopy_filter_sensitivity.R,main
 Fig. 3,4.4,Budget stacked bars by filter (outliers retained + removed),budget_stacked_by_filter,precision,04_canopy_filter_sensitivity.R,main
 Fig. 4,4.3,Component flux ridgelines (no outliers),component_flux_by_mdf_filter_no_outliers,precision,04_canopy_filter_sensitivity.R,main
-Fig. 5,3.1,Per-measurement CH4 Allan deviation violin (LGR vs LI-7810),ch4_allan_deviation_by_instrument,,05_instrument_comparison.R,main
+Fig. 5,3.1,Per-measurement CH4 Allan deviation violin (Analyzer A vs Analyzer B),ch4_allan_deviation_by_instrument,,05_instrument_comparison.R,main
 Fig. 6,5.1,Treatment comparison: overlaid density ridges,ch4_mdf_treatment_ridges,,07_treatment_comparison.R,main
 Fig. 7,5.1,Treatment bias: mean/median shift dot-line plot,ch4_mdf_treatment_bias,,07_treatment_comparison.R,main
 Fig. 8,3.3,Flux vs noise floor scatter (with wedge lines),ch4_flux_vs_noise_floor,,06_seasonal_analysis.R,main
@@ -15,7 +15,7 @@ Fig. 13,3.2,MDF detection rates by method and instrument (bar chart),mdf_detecti
 Fig. 14,3.2,MDF threshold distributions by method and instrument (violin),mdf_threshold_distributions,,09_mdf_figures.R,main
 Fig. 15,2.4,MDF vs measurement duration (theoretical curves),mdf_vs_duration,,09_mdf_figures.R,main
 Fig. S1,3.2/4,All-filter ridgeline rainfall plot (19 filters),ch4_flux_ridges_by_filter,,05_instrument_comparison.R,supplementary
-Fig. S2,3.3,Flux ridgelines by instrument (overlaid LGR vs LI-7810),ch4_flux_ridges_by_instrument,,05_instrument_comparison.R,supplementary
+Fig. S2,3.3,Flux ridgelines by instrument (overlaid Analyzer A vs Analyzer B),ch4_flux_ridges_by_instrument,,05_instrument_comparison.R,supplementary
 Fig. S3,3.3,Flux density overlay by instrument,ch4_flux_density_by_instrument,,05_instrument_comparison.R,supplementary
 Fig. S4,3.3,% negative CH4 flux by month and instrument,ch4_pct_negative_by_month_instrument,,06_seasonal_analysis.R,supplementary
 Fig. S5,3.3,Monthly flux histograms by instrument,ch4_flux_monthly_by_instrument,,06_seasonal_analysis.R,supplementary
@@ -24,15 +24,22 @@ Fig. S7,5,Treatment % change bar chart,ch4_mdf_treatment_pct_change,,07_treatmen
 Fig. S8,4.3,Flux rate uncertainty by component (min/max/median),flux_rate_uncertainty_by_component,precision,04_canopy_filter_sensitivity.R,supplementary
 Fig. S9,4,Quality criteria heatmap (% passing),quality_criteria_heatmap,precision,04_canopy_filter_sensitivity.R,supplementary
 Fig. S10,3.1,CO2 precision: manufacturer vs empirical,precision_comparison_CO2,precision,04_canopy_filter_sensitivity.R,supplementary
-Fig. S11,2.3,Rolling window quiet-period selection (LGR3 CH4),rolling_window_LGR3_CH4,precision,04_canopy_filter_sensitivity.R,supplementary
-Fig. S12,2.3,Rolling window quiet-period selection (LGR3 CO2),rolling_window_LGR3_CO2,precision,04_canopy_filter_sensitivity.R,supplementary
-Fig. S13,2.3,Rolling window quiet-period selection (YMF CH4),rolling_window_YMF_CH4,precision,04_canopy_filter_sensitivity.R,supplementary
-Fig. S14,2.3,Rolling window quiet-period selection (YMF CO2),rolling_window_YMF_CO2,precision,04_canopy_filter_sensitivity.R,supplementary
+Fig. S11,2.3,Rolling window quiet-period selection (A-3 CH4),rolling_window_LGR3_CH4,precision,04_canopy_filter_sensitivity.R,supplementary
+Fig. S12,2.3,Rolling window quiet-period selection (A-3 CO2),rolling_window_LGR3_CO2,precision,04_canopy_filter_sensitivity.R,supplementary
+Fig. S13,2.3,Rolling window quiet-period selection (A-3 YMF CH4),rolling_window_YMF_CH4,precision,04_canopy_filter_sensitivity.R,supplementary
+Fig. S14,2.3,Rolling window quiet-period selection (A-3 YMF CO2),rolling_window_YMF_CO2,precision,04_canopy_filter_sensitivity.R,supplementary
 Fig. S15,3.1,Allan deviation per-measurement distributions (CH4),allan_deviation_CH4,precision,04_canopy_filter_sensitivity.R,supplementary
 Fig. S16,3.1,Allan deviation per-measurement distributions (CO2),allan_deviation_CO2,precision,04_canopy_filter_sensitivity.R,supplementary
 Fig. 16,4.5,Quality filter exclusion rates by month (seasonal confounding),seasonal_fraction_flagged,,10_seasonal_confounding.R,main
 Fig. 17,4.5,|CH4 flux| vs R2 colored by temperature (R2 selection bias),r2_vs_flux_by_temperature,,10_seasonal_confounding.R,main
+Fig. 17b,4.5,Signed CH4 flux vs R2 colored by temperature,r2_vs_flux_signed_by_temperature,,10_seasonal_confounding.R,main
 Fig. 18,4.5,Time-series colored by filter status (temporal clustering),timeseries_filter_status,,10_seasonal_confounding.R,main
 Fig. 19,4.5,Flux vs air temperature by filter status (ecological confounding),flux_vs_temperature_filter_status,,10_seasonal_confounding.R,main
 Fig. 20,4.4/7,Cumulative annual budget under different filter treatments,cumulative_annual_budget,,10_seasonal_confounding.R,main
+Fig. 21,4.5,Quality filter exclusion rates by month - wetland soil (R2-based),soil_seasonal_fraction_flagged,,10_seasonal_confounding.R,main
+Fig. 22,4.5,|CH4 flux| vs R2 colored by temperature - wetland soil,soil_r2_vs_flux_by_temperature,,10_seasonal_confounding.R,main
+Fig. 22b,4.5,Signed CH4 flux vs R2 colored by temperature - wetland soil,soil_r2_vs_flux_signed_by_temperature,,10_seasonal_confounding.R,main
+Fig. 23,4.5,Time-series colored by filter status - wetland soil,soil_timeseries_filter_status,,10_seasonal_confounding.R,main
+Fig. 24,4.5,Flux vs chamber temperature by filter status - wetland soil,soil_flux_vs_temperature_filter_status,,10_seasonal_confounding.R,main
+Fig. 25,4.4/7,Cumulative annual budget under R2 filters - wetland soil,soil_cumulative_annual_budget,,10_seasonal_confounding.R,main
 Fig. S17,3.2,MDF detection rates: all datasets combined,mdf_detection_rates_all,,09_mdf_figures.R,supplementary

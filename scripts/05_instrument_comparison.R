@@ -1,12 +1,12 @@
 # ============================================================================
 # 05_instrument_comparison.R — Stem flux ridgeline plot (all quality filters)
-# and instrument-specific analyses (LGR/UGGA vs LI-7810)
+# and instrument-specific analyses (Analyzer A vs Analyzer B)
 #
 # PART 9: Main ggridges rainfall plot showing CH4 flux distribution under
 #         ALL 13+ quality filter criteria, rows ordered by % retained,
 #         with annotations (n and %)
 # PART 10: Instrument-specific analyses:
-#          - Faceted ridgeline by instrument (LGR/UGGA vs LI-7810)
+#          - Faceted ridgeline by instrument (Analyzer A vs Analyzer B)
 #          - Violin plot of Allan deviation by instrument
 #          - Density comparison overlay
 #
@@ -67,8 +67,8 @@ p_ridges <- ggplot(ridge_df, aes(x = CH4_flux, y = filter)) +
     y = NULL,
     title = expression(CH[4]~flux~distribution~under~quality~filters),
     subtitle = paste0("n = ", n_total,
-                      " measurements (", sum(df$year < 2025), " LGR 2023-24 + ",
-                      sum(df$year == 2025), " LI-7810 2025)",
+                      " measurements (", sum(df$year < 2025), " Analyzer A + ",
+                      sum(df$year == 2025), " Analyzer B)",
                       "\nAllan deviation coverage: ", n_with_allan, "/", n_total,
                       " | Labels: (n retained, % | % negative)")
   ) +
@@ -123,7 +123,7 @@ print(as.data.frame(neg_summary), row.names = FALSE)
 
 cat("\n=== Allan deviation comparison by instrument ===\n")
 if (nrow(allan_df_lgr) > 0) {
-  cat("LGR/UGGA (2023-24):\n")
+  cat("Analyzer A:\n")
   cat("  CH4: median =", round(median(allan_df_lgr$allan_sd_CH4, na.rm = TRUE), 4),
       "ppb, IQR =", round(quantile(allan_df_lgr$allan_sd_CH4, 0.25, na.rm = TRUE), 4),
       "-", round(quantile(allan_df_lgr$allan_sd_CH4, 0.75, na.rm = TRUE), 4), "\n")
@@ -133,7 +133,7 @@ if (nrow(allan_df_lgr) > 0) {
   cat("  Manufacturer spec: CH4 =", PREC_CH4_LGR, "ppb, CO2 =", PREC_CO2_LGR, "ppm\n")
 }
 if (nrow(allan_df_7810) > 0) {
-  cat("LI-7810 (2025):\n")
+  cat("Analyzer B:\n")
   cat("  CH4: median =", round(median(allan_df_7810$allan_sd_CH4, na.rm = TRUE), 4),
       "ppb, IQR =", round(quantile(allan_df_7810$allan_sd_CH4, 0.25, na.rm = TRUE), 4),
       "-", round(quantile(allan_df_7810$allan_sd_CH4, 0.75, na.rm = TRUE), 4), "\n")
@@ -153,8 +153,8 @@ message("\n=== Instrument comparison ===")
 df <- df %>%
   mutate(
     inst_label = case_when(
-      year == 2025 ~ "LI-7810 (2025)",
-      year < 2025  ~ "LGR/UGGA (2023-24)"
+      year == 2025 ~ "Analyzer B",
+      year < 2025  ~ "Analyzer A"
     )
   )
 
@@ -264,15 +264,15 @@ p_inst_ridges <- ggplot(
     labels = c("-5", "-2", "-1", "0", "0.5", "1", "2", "5", "10", "20")
   ) +
   scale_fill_manual(
-    values = c("LGR/UGGA (2023-24)" = "#E69F00", "LI-7810 (2025)" = "#56B4E9"),
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
     name = "Instrument"
   ) +
   labs(
     x = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
     y = NULL,
     title = expression(CH[4]~flux~distribution~by~instrument~and~quality~filter),
-    subtitle = paste0("Overlaid densities: LGR/UGGA (n=", sum(df$year < 2025),
-                      ") vs LI-7810 (n=", sum(df$year == 2025), ")")
+    subtitle = paste0("Overlaid densities: Analyzer A (n=", sum(df$year < 2025),
+                      ") vs Analyzer B (n=", sum(df$year == 2025), ")")
   ) +
   theme_classic(base_size = 11) +
   theme(
@@ -293,11 +293,11 @@ message("Saved instrument comparison ridges to: ", fig_dir)
 
 allan_combined <- bind_rows(
   allan_df_lgr %>%
-    transmute(instrument = "LGR/UGGA (2023-24)",
+    transmute(instrument = "Analyzer A",
               CH4_allan_sd = allan_sd_CH4,
               CO2_allan_sd = allan_sd_CO2),
   allan_df_7810 %>%
-    transmute(instrument = "LI-7810 (2025)",
+    transmute(instrument = "Analyzer B",
               CH4_allan_sd = allan_sd_CH4,
               CO2_allan_sd = allan_sd_CO2)
 )
@@ -309,14 +309,14 @@ p_allan <- ggplot(allan_combined, aes(x = instrument, y = CH4_allan_sd,
   geom_hline(yintercept = PREC_CH4_LGR,  linetype = "dashed", color = "#E69F00") +
   geom_hline(yintercept = PREC_CH4_7810, linetype = "dashed", color = "#56B4E9") +
   annotate("text", x = 2.4, y = PREC_CH4_LGR,
-           label = paste0("LGR spec: ", PREC_CH4_LGR, " ppb"),
+           label = paste0("Analyzer A spec: ", PREC_CH4_LGR, " ppb"),
            hjust = 1, size = 3, color = "#E69F00") +
   annotate("text", x = 2.4, y = PREC_CH4_7810,
-           label = paste0("LI-7810 spec: ", PREC_CH4_7810, " ppb"),
+           label = paste0("Analyzer B spec: ", PREC_CH4_7810, " ppb"),
            hjust = 1, size = 3, color = "#56B4E9") +
   scale_y_log10() +
   scale_fill_manual(
-    values = c("LGR/UGGA (2023-24)" = "#E69F00", "LI-7810 (2025)" = "#56B4E9"),
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
     guide = "none"
   ) +
   labs(
@@ -350,11 +350,11 @@ p_flux_inst <- ggplot(df, aes(x = CH4_flux_nmolpm2ps, fill = inst_label,
     labels = c("-5", "-2", "-1", "0", "0.5", "1", "2", "5", "10", "20")
   ) +
   scale_fill_manual(
-    values = c("LGR/UGGA (2023-24)" = "#E69F00", "LI-7810 (2025)" = "#56B4E9"),
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
     name = "Instrument"
   ) +
   scale_color_manual(
-    values = c("LGR/UGGA (2023-24)" = "#E69F00", "LI-7810 (2025)" = "#56B4E9"),
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
     name = "Instrument"
   ) +
   labs(
@@ -362,9 +362,9 @@ p_flux_inst <- ggplot(df, aes(x = CH4_flux_nmolpm2ps, fill = inst_label,
     y = "Density",
     title = expression(CH[4]~flux~distribution~by~instrument),
     subtitle = paste0(
-      "LGR/UGGA: n=", sum(df$year < 2025),
+      "Analyzer A: n=", sum(df$year < 2025),
       " (", round(100 * mean(df$CH4_flux_nmolpm2ps[df$year < 2025] < 0), 1), "% neg)",
-      " | LI-7810: n=", sum(df$year == 2025),
+      " | Analyzer B: n=", sum(df$year == 2025),
       " (", round(100 * mean(df$CH4_flux_nmolpm2ps[df$year == 2025] < 0), 1), "% neg)"
     )
   ) +

@@ -48,7 +48,7 @@ canopy_rates <- lapply(seq_len(nrow(canopy_methods)), function(i) {
     n_below  = sum(vals, na.rm = TRUE),
     n_eval   = sum(!is.na(vals)),
     dataset  = "HF canopy",
-    instrument = "GLA131 (canopy)",
+    instrument = "Analyzer A (canopy)",
     stringsAsFactors = FALSE
   )
 })
@@ -79,7 +79,7 @@ stem_rates <- lapply(seq_len(nrow(stem_methods)), function(i) {
     n_below  = sum(lgr_vals, na.rm = TRUE),
     n_eval   = sum(!is.na(lgr_vals)),
     dataset  = "HF stem",
-    instrument = "GLA131 (stem)",
+    instrument = "Analyzer A (stem)",
     stringsAsFactors = FALSE
   )
 
@@ -92,7 +92,7 @@ stem_rates <- lapply(seq_len(nrow(stem_methods)), function(i) {
     n_below  = sum(li_vals, na.rm = TRUE),
     n_eval   = sum(!is.na(li_vals)),
     dataset  = "HF stem",
-    instrument = "LI-7810 (stem)",
+    instrument = "Analyzer B (stem)",
     stringsAsFactors = FALSE
   )
 
@@ -111,7 +111,7 @@ rate_df$method <- factor(rate_df$method, levels = method_levels)
 
 # Instrument ordering
 rate_df$instrument <- factor(rate_df$instrument,
-                              levels = c("GLA131 (canopy)", "GLA131 (stem)", "LI-7810 (stem)"))
+                              levels = c("Analyzer A (canopy)", "Analyzer A (stem)", "Analyzer B (stem)"))
 
 # Approach colors
 approach_colors <- c("Manufacturer" = "#999999",
@@ -139,7 +139,7 @@ p_rates_stem <- ggplot(stem_only,
   geom_hline(yintercept = 50, linetype = "dashed", color = "grey50", linewidth = 0.4) +
   annotate("text", x = 7.4, y = 52, label = "50%", size = 2.8, color = "grey50") +
   scale_fill_manual(
-    values = c("GLA131 (stem)" = "#E69F00", "LI-7810 (stem)" = "#56B4E9"),
+    values = c("Analyzer A (stem)" = "#E69F00", "Analyzer B (stem)" = "#56B4E9"),
     name = "Instrument"
   ) +
   scale_y_continuous(limits = c(0, 90), expand = expansion(mult = c(0, 0.05))) +
@@ -147,8 +147,8 @@ p_rates_stem <- ggplot(stem_only,
     x = "MDF method",
     y = "% of measurements below detection",
     title = expression(CH[4]~detection~rates~by~MDF~method~and~instrument),
-    subtitle = paste0("Stem flux dataset: GLA131 (n=", sum(df$year < 2025),
-                      ") vs LI-7810 (n=", sum(df$year == 2025), ")")
+    subtitle = paste0("Stem flux dataset: Analyzer A (n=", sum(df$year < 2025),
+                      ") vs Analyzer B (n=", sum(df$year == 2025), ")")
   ) +
   theme_classic(base_size = 12) +
   theme(
@@ -175,9 +175,9 @@ p_rates_all <- ggplot(rate_df,
             vjust = -0.5, size = 2.5) +
   geom_hline(yintercept = 50, linetype = "dashed", color = "grey50", linewidth = 0.4) +
   scale_fill_manual(
-    values = c("GLA131 (canopy)" = "#D55E00",
-               "GLA131 (stem)" = "#E69F00",
-               "LI-7810 (stem)" = "#56B4E9"),
+    values = c("Analyzer A (canopy)" = "#D55E00",
+               "Analyzer A (stem)" = "#E69F00",
+               "Analyzer B (stem)" = "#56B4E9"),
     name = "Instrument / dataset"
   ) +
   scale_y_continuous(limits = c(0, 90), expand = expansion(mult = c(0, 0.05))) +
@@ -185,8 +185,8 @@ p_rates_all <- ggplot(rate_df,
     x = "MDF method",
     y = "% of measurements below detection",
     title = expression(CH[4]~detection~rates~across~MDF~methods~","~instruments~","~and~datasets),
-    subtitle = paste0("Canopy (n=", nrow(hf_out), ") | Stem GLA131 (n=", sum(df$year < 2025),
-                      ") | Stem LI-7810 (n=", sum(df$year == 2025), ")")
+    subtitle = paste0("Canopy (n=", nrow(hf_out), ") | Stem Analyzer A (n=", sum(df$year < 2025),
+                      ") | Stem Analyzer B (n=", sum(df$year == 2025), ")")
   ) +
   theme_classic(base_size = 11) +
   theme(
@@ -221,7 +221,7 @@ mdf_long <- lapply(seq_along(mdf_value_cols), function(i) {
   data.frame(
     method    = mdf_labels[i],
     mdf_value = df[[mdf_value_cols[i]]],
-    instrument = ifelse(df$year == 2025, "LI-7810", "GLA131"),
+    instrument = ifelse(df$year == 2025, "Analyzer B", "Analyzer A"),
     stringsAsFactors = FALSE
   )
 })
@@ -230,7 +230,7 @@ mdf_long_df <- mdf_long_df[!is.na(mdf_long_df$mdf_value), ]
 
 mdf_long_df$method <- factor(mdf_long_df$method, levels = mdf_labels)
 mdf_long_df$instrument <- factor(mdf_long_df$instrument,
-                                  levels = c("GLA131", "LI-7810"))
+                                  levels = c("Analyzer A", "Analyzer B"))
 
 # Approach grouping for color
 mdf_long_df$approach <- ifelse(grepl("Manufacturer", mdf_long_df$method), "Manufacturer",
@@ -248,8 +248,8 @@ p_mdf_dist <- ggplot(mdf_long_df,
     breaks = c(0.001, 0.01, 0.1, 1, 10)
   ) +
   scale_fill_manual(
-    values = c("GLA131" = "#E69F00", "LI-7810" = "#56B4E9"),
-    name = "Instrument"
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
+    name = "Analyzer"
   ) +
   labs(
     x = "MDF method",
@@ -289,10 +289,10 @@ message("  Median flux_term: ", round(median_flux_term, 3))
 # Precision values to compare
 precision_values <- data.frame(
   label = c(
-    paste0("GLA131 manufacturer (", PREC_CH4_LGR, " ppb)"),
-    paste0("GLA131 empirical median (", round(median(df$allan_sd_CH4[df$year < 2025], na.rm = TRUE), 1), " ppb)"),
-    paste0("LI-7810 manufacturer (", PREC_CH4_7810, " ppb)"),
-    paste0("LI-7810 empirical median (", round(median(df$allan_sd_CH4[df$year == 2025], na.rm = TRUE), 3), " ppb)")
+    paste0("Analyzer A manufacturer (", PREC_CH4_LGR, " ppb)"),
+    paste0("Analyzer A empirical median (", round(median(df$allan_sd_CH4[df$year < 2025], na.rm = TRUE), 1), " ppb)"),
+    paste0("Analyzer B manufacturer (", PREC_CH4_7810, " ppb)"),
+    paste0("Analyzer B empirical median (", round(median(df$allan_sd_CH4[df$year == 2025], na.rm = TRUE), 3), " ppb)")
   ),
   precision = c(
     PREC_CH4_LGR,
@@ -301,7 +301,7 @@ precision_values <- data.frame(
     median(df$allan_sd_CH4[df$year == 2025], na.rm = TRUE)
   ),
   linetype = c("dashed", "solid", "dashed", "solid"),
-  instrument = c("GLA131", "GLA131", "LI-7810", "LI-7810"),
+  instrument = c("Analyzer A", "Analyzer A", "Analyzer B", "Analyzer B"),
   stringsAsFactors = FALSE
 )
 
@@ -333,20 +333,18 @@ p_mdf_duration <- ggplot(mdf_curve_df,
   annotate("text", x = 310, y = max(mdf_curve_df$mdf) * 0.9,
            label = "5 min", hjust = 0, size = 3, color = "grey50") +
   scale_color_manual(
-    values = c("GLA131" = "#E69F00", "LI-7810" = "#56B4E9"),
-    name = "Instrument"
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
+    name = "Analyzer"
   ) +
   scale_linetype_manual(
     values = c("Manufacturer spec" = "dashed", "Empirical (Allan)" = "solid"),
     name = "Precision source"
   ) +
-  scale_y_log10(
-    labels = scales::label_number(drop0trailing = TRUE),
-    breaks = c(0.0001, 0.001, 0.01, 0.1, 1)
+  scale_y_continuous(
+    labels = scales::label_number(drop0trailing = TRUE)
   ) +
   scale_x_continuous(breaks = seq(60, 600, by = 60),
                      labels = function(x) paste0(x / 60, " min")) +
-  annotation_logticks(sides = "l", size = 0.3) +
   labs(
     x = "Measurement duration",
     y = expression(MDF~(nmol~m^{-2}~s^{-1})),
@@ -387,8 +385,8 @@ cat("  Christiansen 90-99%:    ",
     round(100 * mean(hf_out$CH4_below_MDF_chr99, na.rm = TRUE), 1), "%\n")
 
 cat("\nStem (n=", nrow(df), "):\n")
-for (inst in c("GLA131", "LI-7810")) {
-  mask <- if (inst == "GLA131") df$year < 2025 else df$year == 2025
+for (inst in c("Analyzer A", "Analyzer B")) {
+  mask <- if (inst == "Analyzer A") df$year < 2025 else df$year == 2025
   n_inst <- sum(mask)
   cat("  ", inst, " (n=", n_inst, "):\n", sep = "")
   cat("    Manufacturer:         ", round(100 * mean(df$CH4_below_MDF_manuf[mask], na.rm = TRUE), 1), "%\n")
@@ -408,12 +406,12 @@ for (col in mdf_value_cols) {
 }
 
 cat("\nMedian flux_term used for duration curves:", round(median_flux_term, 3), "\n")
-cat("MDF at t=300s for manufacturer GLA131:",
+cat("MDF at t=300s for manufacturer Analyzer A:",
     round(PREC_CH4_LGR / 300 * median_flux_term, 4), "nmol/m2/s\n")
-cat("MDF at t=300s for empirical GLA131:",
+cat("MDF at t=300s for empirical Analyzer A:",
     round(median(df$allan_sd_CH4[df$year < 2025], na.rm = TRUE) / 300 * median_flux_term, 4),
     "nmol/m2/s\n")
-cat("MDF at t=300s for empirical LI-7810:",
+cat("MDF at t=300s for empirical Analyzer B:",
     round(median(df$allan_sd_CH4[df$year == 2025], na.rm = TRUE) / 300 * median_flux_term, 6),
     "nmol/m2/s\n")
 

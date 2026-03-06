@@ -2,8 +2,11 @@
 data/stem_raw/7810/
 data/stem_raw/LGR/
 
-# RData intermediate outputs (reproducible from scripts)
-outputs/*.RData
+# Intermediate outputs (reproducible from scripts)
+outputs/
+
+# Archived/old figures
+figures/archive/
 
 # Rendered documents (reproducible from .qmd)
 manuscript/*.pdf
@@ -14,6 +17,9 @@ manuscript/*.tex
 .Rhistory
 .RData
 .Rproj.user/
+
+# Literature PDFs (large, not source)
+literature/
 
 # OS files
 .DS_Store

@@ -43,8 +43,8 @@ if (!"inst_label" %in% names(df)) {
   df <- df %>%
     mutate(
       inst_label = case_when(
-        year == 2025 ~ "LI-7810 (2025)",
-        year < 2025  ~ "LGR/UGGA (2023-24)"
+        year == 2025 ~ "Analyzer B",
+        year < 2025  ~ "Analyzer A"
       )
     )
 }
@@ -114,9 +114,9 @@ for (filt_name in names(mdf_filters)) {
 treat_df <- do.call(rbind, treat_rows)
 
 # Order filters from least to most stringent
-filter_order_mdf <- c("Manufacturer MDF",
-                       "Wassmann 90%", "Wassmann 95%", "Wassmann 99%",
-                       "Christiansen 90%", "Christiansen 95%", "Christiansen 99%")
+filter_order_mdf <- c("Christiansen 99%", "Christiansen 95%", "Christiansen 90%",
+                       "Wassmann 99%", "Wassmann 95%", "Wassmann 90%",
+                       "Manufacturer MDF")
 treat_df$filter <- factor(treat_df$filter, levels = filter_order_mdf)
 
 # Treatment ordering: unfiltered as baseline, then the two alternatives
@@ -200,10 +200,33 @@ p_treat_ridges <- ggplot(treat_df,
   ) +
   coord_cartesian(xlim = c(asinh(-3), asinh(15)))
 
+# Add mean (triangle) and median (diamond) markers
+ridge_stats <- treat_df %>%
+  group_by(filter, treatment) %>%
+  summarise(
+    mean_flux   = mean(CH4_flux),
+    median_flux = median(CH4_flux),
+    .groups = "drop"
+  )
+
+p_treat_ridges <- p_treat_ridges +
+  geom_point(data = ridge_stats,
+             aes(x = mean_flux, y = filter, color = treatment),
+             shape = 17, size = 2.5, inherit.aes = FALSE,
+             position = position_nudge(y = -0.15)) +
+  geom_point(data = ridge_stats,
+             aes(x = median_flux, y = filter, color = treatment),
+             shape = 18, size = 3, inherit.aes = FALSE,
+             position = position_nudge(y = -0.15))
+
+# Add legend note for shapes
+p_treat_ridges <- p_treat_ridges +
+  labs(caption = "\u25b2 = mean    \u25c6 = median")
+
 ggsave(file.path(fig_dir, "ch4_mdf_treatment_ridges.png"),
-       p_treat_ridges, width = 11, height = 8, dpi = 300)
+       p_treat_ridges, width = 9, height = 12, dpi = 300)
 ggsave(file.path(fig_dir, "ch4_mdf_treatment_ridges.pdf"),
-       p_treat_ridges, width = 11, height = 8)
+       p_treat_ridges, width = 9, height = 12)
 message("Saved MDF treatment ridges to: ", fig_dir)
 
 # --- PLOT 2: Mean / median shift by treatment (dot-and-line) ---
@@ -223,6 +246,7 @@ p_bias <- ggplot(treat_summary_long,
   geom_point(size = 2.5) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   facet_wrap(~ statistic, ncol = 1, scales = "free_y") +
+  scale_x_discrete(limits = rev) +
   scale_color_manual(
     values = c("Keep all (unfiltered)" = "grey50",
                "Set below MDF to zero" = "#2166AC",
@@ -250,13 +274,13 @@ p_bias <- ggplot(treat_summary_long,
   )
 
 ggsave(file.path(fig_dir, "ch4_mdf_treatment_bias.png"),
-       p_bias, width = 10, height = 7, dpi = 300)
+       p_bias, width = 7, height = 12, dpi = 300)
 ggsave(file.path(fig_dir, "ch4_mdf_treatment_bias.pdf"),
-       p_bias, width = 10, height = 7)
+       p_bias, width = 7, height = 12)
 message("Saved MDF treatment bias plot to: ", fig_dir)
 
 # --- PLOT 3: Same as PLOT 1 but split by instrument ---
-# Shows the differential impact: removal biases LGR far more than LI-7810
+# Shows the differential impact: removal biases Analyzer A far more than Analyzer B
 
 p_treat_inst <- ggplot(treat_df,
                         aes(x = CH4_flux, fill = treatment, color = treatment)) +
@@ -284,7 +308,7 @@ p_treat_inst <- ggplot(treat_df,
     x = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
     y = "Density",
     title = expression(Below-MDF~treatment~effect~by~instrument),
-    subtitle = "Removal causes rightward shift primarily for LGR; LI-7810 is minimally affected"
+    subtitle = "Removal causes rightward shift primarily for Analyzer A; Analyzer B is minimally affected"
   ) +
   theme_classic(base_size = 9) +
   theme(

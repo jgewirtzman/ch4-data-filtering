@@ -120,9 +120,9 @@ plot_theme <- theme_classic(base_size = 11) +
     axis.ticks       = element_line(linewidth = 0.3)
   )
 
-# Instrument display labels (YMF used the same LGR3 unit on a different day)
-inst_display <- c("LGR1" = "LGR1", "LGR2" = "LGR2",
-                  "LGR3" = "LGR3", "YMF" = "LGR3-YMF")
+# Instrument display labels (anonymized; YMF used the same A-3 unit on a different day)
+inst_display <- c("LGR1" = "A-1", "LGR2" = "A-2",
+                  "LGR3" = "A-3", "YMF" = "A-3 (YMF)")
 
 # GLA131 manufacturer precision
 prec_co2 <- PREC_CO2_LGR
@@ -179,7 +179,7 @@ make_allan_plot <- function(data, rw_data, manuf_val, y_lab, title_expr) {
     ) +
     labs(y = y_lab, x = "Instrument", title = title_expr) +
     annotate("text", x = 0.55, y = manuf_val * 1.15,
-             label = "GLA131 spec", color = "red", hjust = 0, size = 3) +
+             label = "Analyzer A spec", color = "red", hjust = 0, size = 3) +
     plot_theme +
     guides(shape = guide_legend(override.aes = list(
       color = c("#2166AC", "#B2182B"), size = c(2, 4), alpha = c(0.7, 1)
@@ -333,20 +333,20 @@ plot_rolling_window_selection <- function(imp_df, col_name, instrument_name,
   p
 }
 
-# LGR3 (longest HF record)
+# A-3 (longest HF record)
 p_rw_co2 <- plot_rolling_window_selection(
-  imp.LGR3, "CO2dry_ppm", "LGR3", "CO2", ylimits = c(400, 500))
+  imp.LGR3, "CO2dry_ppm", "A-3", "CO2", ylimits = c(400, 500))
 p_rw_ch4 <- plot_rolling_window_selection(
-  imp.LGR3, "CH4dry_ppb", "LGR3", "CH4", ylimits = c(1000, 2500))
+  imp.LGR3, "CH4dry_ppb", "A-3", "CH4", ylimits = c(1000, 2500))
 
-# LGR3-YMF (same instrument, different day)
+# A-3 (YMF) (same instrument, different day)
 p_rw_ymf_co2 <- NULL
 p_rw_ymf_ch4 <- NULL
 if (exists("ymf_imp")) {
   p_rw_ymf_co2 <- plot_rolling_window_selection(
-    ymf_imp, "CO2dry_ppm", "LGR3-YMF", "CO2", ylimits = c(400, 500))
+    ymf_imp, "CO2dry_ppm", "A-3 (YMF)", "CO2", ylimits = c(400, 500))
   p_rw_ymf_ch4 <- plot_rolling_window_selection(
-    ymf_imp, "CH4dry_ppb", "LGR3-YMF", "CH4", ylimits = c(1000, 2500))
+    ymf_imp, "CH4dry_ppb", "A-3 (YMF)", "CH4", ylimits = c(1000, 2500))
 }
 
 # Save all rolling window plots
