@@ -2,7 +2,7 @@
 # 06_seasonal_analysis.R — Seasonal / monthly breakdown of CH4 fluxes
 #
 # Disentangles biological signal (dormant-season uptake) from instrument
-# noise artifacts by comparing LGR (all seasons) vs LI-7810 (growing only).
+# noise artifacts by comparing Analyzer A (all seasons) vs Analyzer B (growing only).
 #
 # Analyses:
 #   1. Monthly negative flux table by instrument
@@ -44,8 +44,8 @@ if (!"inst_label" %in% names(df)) {
   df <- df %>%
     mutate(
       inst_label = case_when(
-        year == 2025 ~ "LI-7810 (2025)",
-        year < 2025  ~ "LGR/UGGA (2023-24)"
+        year == 2025 ~ "Analyzer B",
+        year < 2025  ~ "Analyzer A"
       )
     )
 }
@@ -194,14 +194,14 @@ p_monthly <- ggplot(df, aes(x = CH4_flux_nmolpm2ps, fill = inst_label)) +
     labels = c("-2", "-1", "0", "0.5", "1", "2", "5", "10")
   ) +
   scale_fill_manual(
-    values = c("LGR/UGGA (2023-24)" = "#E69F00", "LI-7810 (2025)" = "#56B4E9"),
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
     name = "Instrument"
   ) +
   labs(
     x = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
     y = "Density",
     title = expression(Monthly~CH[4]~flux~distributions~by~instrument),
-    subtitle = "LGR covers dormant + growing season; LI-7810 covers growing season only (Apr-Oct 2025)"
+    subtitle = "Analyzer A covers dormant + growing season; Analyzer B covers growing season only (Apr-Oct 2025)"
   ) +
   theme_classic(base_size = 10) +
   theme(
@@ -236,7 +236,7 @@ p_neg_month <- ggplot(monthly_neg_rate,
             position = position_dodge(width = 0.7),
             vjust = -0.4, size = 2.5, color = "grey40") +
   scale_fill_manual(
-    values = c("LGR/UGGA (2023-24)" = "#E69F00", "LI-7810 (2025)" = "#56B4E9"),
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
     name = "Instrument"
   ) +
   labs(
@@ -278,7 +278,7 @@ if (sum(!is.na(df$CH4_noise_floor)) > 50) {
       labels = c("-5", "-2", "-1", "0", "0.5", "1", "2", "5", "10", "20")
     ) +
     scale_color_manual(
-      values = c("LGR/UGGA (2023-24)" = "#E69F00", "LI-7810 (2025)" = "#56B4E9"),
+      values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
       name = "Instrument"
     ) +
     annotate("text", x = 0.3, y = 0.4, label = "flux = +noise floor",
@@ -333,11 +333,11 @@ p_ts <- ggplot(monthly_ts, aes(x = date_mid, color = inst_label, fill = inst_lab
   geom_point(aes(y = median_flux, size = n), alpha = 0.7) +
   scale_size_continuous(range = c(1.5, 4), name = "n measurements") +
   scale_color_manual(
-    values = c("LGR/UGGA (2023-24)" = "#E69F00", "LI-7810 (2025)" = "#56B4E9"),
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
     name = "Instrument"
   ) +
   scale_fill_manual(
-    values = c("LGR/UGGA (2023-24)" = "#E69F00", "LI-7810 (2025)" = "#56B4E9"),
+    values = c("Analyzer A" = "#E69F00", "Analyzer B" = "#56B4E9"),
     name = "Instrument"
   ) +
   scale_y_continuous(
