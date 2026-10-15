@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this code or its methods, please cite the paper below."
+title: "ch4-data-filtering: code for 'Consequential choices and hidden bias: data processing for chamber greenhouse-gas fluxes near detection limits'"
+type: software
+authors:
+  - family-names: Gewirtzman
+    given-names: Jonathan
+    orcid: "https://orcid.org/0000-0003-3959-3758"
+repository-code: "https://github.com/jgewirtzman/ch4-data-filtering"
+keywords:
+  - chamber flux
+  - greenhouse gas
+  - methane
+  - nitrous oxide
+  - minimum detectable flux
+  - detection limit
+  - data processing
+preferred-citation:
+  type: unpublished
+  title: "Consequential choices and hidden bias: data processing for chamber greenhouse-gas fluxes near detection limits"
+  authors:
+    - family-names: Gewirtzman
+      given-names: Jonathan
+      orcid: "https://orcid.org/0000-0003-3959-3758"
+    - family-names: Rosentreter
+      given-names: Judith A.
+      orcid: "https://orcid.org/0000-0001-5787-5682"
+  status: in-preparation
+  year: 2026
