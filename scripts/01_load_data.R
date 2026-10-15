@@ -36,7 +36,6 @@ df <- fluxes %>%
     # dividing by the collar area and with CH4 in ppm, so it is low by
     # 1000/surfarea (~1.2e5). Corrected here; checked against the white-noise
     # expectation sigma / sqrt(sum((t - tbar)^2)) * flux term.
-    # NB the same uncorrected SE is used in tree-flux-2025/scripts/01_import/09_quality_flags.R.
     # (surfarea is NA for 2023-24 rows at this point; all stem collars share SURFAREA_M2)
     CH4_SE_corr = if_else(year < 2025, CH4_SE * 1000 / coalesce(surfarea, SURFAREA_M2), CH4_SE),
     CO2_SE_corr = if_else(year < 2025, CO2_SE / coalesce(surfarea, SURFAREA_M2), CO2_SE),
