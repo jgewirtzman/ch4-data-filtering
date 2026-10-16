@@ -104,101 +104,12 @@ print(mad_results)
 
 message("\n=== Loading field logs for LGR measurement timestamps ===")
 
-field_data_dir <- file.path(data_dir, "stem", "field_logs")
-
-# --- Field log 1: Summer 2023 ---
-fl1 <- read.csv(file.path(field_data_dir, "Field_Data_Monthly_Summer2023.csv"),
-                stringsAsFactors = FALSE)
-fl1_std <- fl1 %>%
-  transmute(
-    UniqueID       = UniqueID,
-    date_raw       = Date,
-    tree_raw       = as.character(Tree_Tag),
-    comp_start     = comp_start_time,
-    comp_end       = comp_end_time,
-    real_start     = Real.start,
-    machine        = trimws(Analyzer),
-    source         = "summer2023"
-  )
-
-# --- Field log 2: Updated2 (Sep 2023 - Sep 2024) ---
-fl2 <- read.csv(file.path(field_data_dir, "Field_Data_Monthly_updated2.csv"),
-                stringsAsFactors = FALSE)
-# Use the "Updated Start Time" / "Updated End Time" columns if available
-# (these incorporate QC corrections), else fall back to comp_start_time
-fl2_std <- fl2 %>%
-  transmute(
-    UniqueID       = UniqueID,
-    date_raw       = format_Date,
-    tree_raw       = as.character(Tree.Tag),
-    comp_start     = if_else(nchar(trimws(Updated.Start.Time)) > 0,
-                              Updated.Start.Time, comp_start_time),
-    comp_end       = if_else(nchar(trimws(Updated.End.Time)) > 0,
-                              Updated.End.Time, comp_end_time),
-    real_start     = Real.start,
-    machine        = trimws(Machine),
-    source         = "updated2"
-  )
-
-# --- Field log 3: Summer 2024 ---
-fl3 <- read.csv(file.path(field_data_dir, "summer_2024.csv"),
-                stringsAsFactors = FALSE)
-fl3_std <- fl3 %>%
-  transmute(
-    UniqueID       = UniqueID,
-    date_raw       = format_Date,
-    tree_raw       = as.character(Tree),
-    comp_start     = comp_start_time,
-    comp_end       = comp_end_time,
-    real_start     = Real.start,
-    machine        = "LGR1",   # no Machine column; all 2024 used LGR1
-    source         = "summer2024"
-  )
-
-# --- Field log 4: Sept-Dec 2024 Excel files ---
-xlsx_dir <- file.path(field_data_dir, "Sept2024_onwards")
-fl4_std <- data.frame()
-if (!requireNamespace("readxl", quietly = TRUE)) stop("package 'readxl' is required to read the Sept-Dec 2024 field logs")
-if (dir.exists(xlsx_dir)) {
-  xlsx_files <- list.files(xlsx_dir, pattern = "[.]xlsx$", full.names = TRUE)
-  xlsx_files <- xlsx_files[!grepl("Template", xlsx_files)]
-  xlsx_files <- xlsx_files[!grepl("2025", xlsx_files)]  # skip 2025 (LI-7810)
-
-  for (xf in xlsx_files) {
-    tryCatch({
-      xd <- as.data.frame(readxl::read_excel(xf))
-      # Normalize column names (spaces -> dots)
-      names(xd) <- make.names(names(xd))
-      xd_std <- xd %>%
-        transmute(
-          UniqueID   = as.character(UniqueID),
-          date_raw   = as.character(format_Date),
-          tree_raw   = as.character(Tree.Tag),
-          comp_start = as.character(comp_start_time),
-          comp_end   = as.character(comp_end_time),
-          real_start = as.character(Real.start),
-          machine    = if ("Machine" %in% names(xd))
-                         as.character(Machine) else "LGR1",
-          source     = "xlsx_late2024"
-        )
-      fl4_std <- bind_rows(fl4_std, xd_std)
-    }, error = function(e) {
-      message("  Warning: could not read ", basename(xf), ": ", e$message)
-    })
-  }
-  # Clean up comp_start/comp_end that may have Excel datetime artifacts
-  # (e.g., "1899-12-31 12:18:52" -> extract just "12:18:52")
-  fl4_std$comp_start <- sub("^.*\\s+", "", fl4_std$comp_start)
-  fl4_std$comp_end   <- sub("^.*\\s+", "", fl4_std$comp_end)
-  fl4_std$real_start <- sub("^.*\\s+", "", fl4_std$real_start)
-
-  message("Excel field logs (Sept-Dec 2024): ", nrow(fl4_std), " entries")
-} else {
-  stop("field-log folder not found: ", xlsx_dir)
-}
-
-# Combine all field logs
-field_logs <- bind_rows(fl1_std, fl2_std, fl3_std, fl4_std)
+# Closure times of the 2023-2024 field logs: the four logs (Summer 2023, Sept 2023 - Sept 2024,
+# Summer 2024 and the Sept-Dec 2024 sheets) reduced to the columns used here, as text
+# (data/from_hf_stem_study/README.md): closure ID, date, tree tag, computation window
+# (QC-updated times where the Sept 2023 - Sept 2024 log has them), analyzer start time,
+# analyzer unit as logged, and the log each row came from
+field_logs <- read.csv(file.path(stem_dir, "field_log_closure_times.csv"), colClasses = "character")
 message("Combined field logs: ", nrow(field_logs), " entries")
 
 # Standardize machine names
@@ -233,7 +144,7 @@ if (any(na_dates)) {
   field_logs$date_parsed[na_dates] <- as.Date(
     field_logs$date_raw[na_dates], format = "%y-%m-%d")
 }
-# Handle ISO format "2024-09-17" (from readxl Date objects converted to char)
+# Handle ISO format "2024-09-17" (Sept-Dec 2024 sheets: readxl dates converted to text)
 na_dates <- is.na(field_logs$date_parsed)
 if (any(na_dates)) {
   field_logs$date_parsed[na_dates] <- as.Date(
@@ -297,7 +208,7 @@ message("\n=== Allan deviation: 2025 LI-7810 ===")
 # closure, not the 60-s best-CO2-R2 sub-window the legacy tables archived. The
 # whole-day first-difference MAD computed here is replaced below by the closure
 # median of sigma_i (the campaign sigma), as for the LGR days.
-raw_dir_7810   <- file.path(data_dir, "stem_raw", "7810", "raw-7810-tree_flux_data")
+raw_dir_7810   <- file.path(raw_dir, "7810", "raw-7810-tree_flux_data")
 raw_files_7810 <- list.files(raw_dir_7810, pattern = "\\.data$", full.names = TRUE)
 message("Found ", length(raw_files_7810), " raw LI-7810 daily .data files")
 
@@ -381,7 +292,7 @@ closures_7810 <- allan_df_7810[, c("seg_key", "REMARK", "DATE", "k", "start", "e
 
 message("\n=== Allan deviation: 2023-24 LGR/UGGA ===")
 
-lgr_base <- file.path(data_dir, "stem_raw", "LGR")
+lgr_base <- file.path(raw_dir, "LGR")
 message("LGR raw data directory: ", lgr_base)
 message("  Exists: ", dir.exists(lgr_base))
 

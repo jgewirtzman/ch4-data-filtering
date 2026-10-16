@@ -19,11 +19,31 @@ data_dir   <- "data"
 fig_dir    <- Sys.getenv("FIG_DIR", "figures")
 output_dir <- "outputs"
 
+# Inputs, one folder per source (data/README.md). They are minimal COPIES of other projects'
+# data, reproduced only so that this analysis can be rerun: not new observations.
+stem_dir    <- file.path(data_dir, "from_hf_stem_study")    # stem study (in prep.)
+canopy_dir  <- file.path(data_dir, "from_canopy_study")     # canopy study (in review)
+soil_dir    <- file.path(data_dir, "from_ymf_soil_zenodo")  # doi:10.5281/zenodo.18779715
+agsoil_dir  <- file.path(data_dir, "from_agsoil_study")     # agricultural soil (in prep.)
+raw_dir     <- file.path(data_dir, "stem_raw")              # raw stem records: local only
+derived_dir <- file.path(data_dir, "derived_from_stem_raw") # saved results of 02 and 02b
+
+# Without the raw stem records, 02, 02b and 14 cannot run; 03 onward then use the results of
+# 02 and 02b saved in data/derived_from_stem_raw/, copied to outputs/ here when missing there.
+raw_available <- dir.exists(file.path(raw_dir, "LGR", "LGR1")) && dir.exists(file.path(raw_dir, "7810"))
+DERIVED_FILES <- c("02_allan_deviation.RData", "02b_goflux_fluxes.RData", "02b_manID.RData")
+
 dir.create(fig_dir, showWarnings = FALSE)
 
 # Figure style (theme_paper, role palettes) and the ggsave wrapper used by every script
 source("scripts/style.R")
 dir.create(output_dir, showWarnings = FALSE)
+if (!raw_available) {
+  for (f in DERIVED_FILES) if (!file.exists(file.path(output_dir, f))) {
+    file.copy(file.path(derived_dir, f), file.path(output_dir, f))
+    message("Raw stem records not found: using ", file.path(derived_dir, f))
+  }
+}
 
 # ── Instrument specifications ───────────────────────────────────────────────
 # Manufacturer precision (1-sigma, 1 sec averaging)
@@ -193,6 +213,34 @@ compute_allan_per_uid <- function(manID_df) {
       .groups = "drop"
     )
 }
+
+#' The worked example of Supplement Sect. S1 (14_figure_closures.R, 17_sigma_figures.R):
+#' two near-linear closures of the noisier analyzer (LGR1) from one well-sampled day, a flux
+#' just below the MDF (about 0.6-0.95 x MDF, where the MDF and a regression disagree) and a
+#' large flux. Near-linear = straight-line residual SD close to the closure's own sigma_i (no
+#' saturation, no placement spike), so the figure shows the estimator, not a misfit.
+#' `win`: the flagged (flag == 1) rows of outputs/02b_manID.RData, ordered by UniqueID and time.
+#' Returns the day and one row each (low, high) of per-closure fit statistics.
+pick_worked_example <- function(win) {
+  lin <- win %>% group_by(UniqueID, analyzer, date_str) %>%
+    summarise(t = list(as.numeric(POSIX.time - POSIX.time[1], units = "secs")), x = list(CH4dry_ppb), .groups = "drop") %>%
+    mutate(n = lengths(x), sigma_i = mapply(function(x, t) sigma_closure(x, as.POSIXct(t, origin = "1970-01-01")), x, t),
+           slope = mapply(function(t, x) coef(lm(x ~ t))[2], t, x),
+           resid_sd = mapply(function(t, x) sd(residuals(lm(x ~ t))), t, x),
+           jump = vapply(x, function(v) max(abs(diff(v))), numeric(1))) %>%
+    filter(analyzer == "LGR1", n >= 170, n <= 240, resid_sd < 1.25 * sigma_i, jump < 12 * sigma_i)
+  day_pick <- lin %>% group_by(date_str) %>%
+    summarise(k = n(), lo = sum(between(abs(slope) * 180 / sigma_i, 1.2, 1.9)), hi = sum(abs(slope) * 180 / sigma_i > 25), .groups = "drop") %>%
+    filter(lo > 0, hi > 0) %>% arrange(desc(k)) %>% slice(1)
+  cand <- lin %>% filter(date_str == day_pick$date_str)
+  list(day  = day_pick$date_str,
+       low  = cand %>% filter(between(abs(slope) * 180 / sigma_i, 1.2, 1.9)) %>% arrange(resid_sd / sigma_i) %>% slice(1),
+       high = cand %>% filter(abs(slope) * 180 / sigma_i > 25) %>% arrange(resid_sd / sigma_i) %>% slice(1))
+}
+
+# Small extracts of the raw records shown in the figures (written by 14_figure_closures.R,
+# read by 15 and 17): tracked in the repository so those figures need no raw archive
+fig_closures_dir <- file.path(stem_dir, "figure_closures")
 
 message("Setup complete. Paths: data_dir=", data_dir,
         ", fig_dir=", fig_dir, ", output_dir=", output_dir)

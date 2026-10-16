@@ -8,6 +8,8 @@
 #   4. manID concentration timeseries (per-measurement, for per-closure precision)
 #   5. Continuous imported data (for rolling window precision)
 #   6. Soil flux data (semirigid chamber)
+# Inputs are minimal copies of the source datasets (data/README.md): 1 from
+# data/from_hf_stem_study/, 2-5 from data/from_canopy_study/, 6 from data/from_ymf_soil_zenodo/.
 #
 # Saves key objects to outputs/01_loaded_data.RData
 # ============================================================================
@@ -20,7 +22,7 @@ source("scripts/00_setup.R")
 
 message("\n=== Loading corrected stem flux data ===")
 
-fluxes <- read.csv(file.path(data_dir, "stem",
+fluxes <- read.csv(file.path(stem_dir,
                               "HF_2023-2025_tree_flux_corrected.csv"),
                    stringsAsFactors = FALSE)
 message("Loaded corrected flux file: ", nrow(fluxes), " rows")
@@ -55,7 +57,7 @@ message("  2023-24 (LGR/UGGA): ", sum(df$year < 2025),
 
 message("\n=== Loading chamber geometry ===")
 
-tv <- read.csv(file.path(data_dir, "stem", "tree_volumes.csv"),
+tv <- read.csv(file.path(stem_dir, "tree_volumes.csv"),
                stringsAsFactors = FALSE)
 tv$Tag_int <- as.integer(round(tv$Tag))
 # vol_system = collar volume (L; already includes cap + tubing) + analyzer volume (same for both)
@@ -92,7 +94,7 @@ message("  surfarea NAs:   ", sum(is.na(df$surfarea)), " / ", n_total)
 message("\n=== Loading canopy flux data ===")
 
 hf_compiled <- read.csv(
-  file.path(data_dir, "canopy", "canopy_flux_goFlux_compiled.csv"),
+  file.path(canopy_dir, "canopy_flux_goFlux_compiled.csv"),
   stringsAsFactors = FALSE)
 hf_compiled$UniqueID <- trimws(hf_compiled$UniqueID)
 
@@ -105,7 +107,7 @@ message("HF compiled: ", nrow(hf_compiled), " rows")
 message("\n=== Loading YMF canopy flux data ===")
 
 ymf_compiled <- read.csv(
-  file.path(data_dir, "ymf_canopy", "ymf_black_oak_flux_compiled.csv"),
+  file.path(canopy_dir, "ymf_black_oak_flux_compiled.csv"),
   stringsAsFactors = FALSE)
 ymf_compiled$UniqueID <- trimws(ymf_compiled$UniqueID)
 
@@ -117,10 +119,10 @@ message("YMF compiled: ", nrow(ymf_compiled), " rows")
 
 message("\n=== Loading manID data ===")
 
-load(file.path(data_dir, "canopy", "manID_LGR1.RData"))
-load(file.path(data_dir, "canopy", "manID_LGR2.RData"))
-load(file.path(data_dir, "canopy", "manID_LGR3.RData"))
-load(file.path(data_dir, "ymf_canopy", "manID_YMF.RData"))
+load(file.path(canopy_dir, "manID_LGR1.RData"))
+load(file.path(canopy_dir, "manID_LGR2.RData"))
+load(file.path(canopy_dir, "manID_LGR3.RData"))
+load(file.path(canopy_dir, "manID_YMF.RData"))
 
 manID_all_hf <- rbind(manID.LGR1, manID.LGR2, manID.LGR3)
 message("HF manID rows: ", nrow(manID_all_hf),
@@ -146,10 +148,10 @@ ymf_compiled$instrument <- "YMF"
 
 message("\n=== Loading continuous imported data ===")
 
-load(file.path(data_dir, "canopy", "imp_LGR1_combined.RData"))
-load(file.path(data_dir, "canopy", "imp_LGR2_combined.RData"))
-load(file.path(data_dir, "canopy", "imp_LGR3_combined.RData"))
-load(file.path(data_dir, "ymf_canopy", "imp_YMF_combined.RData"))
+load(file.path(canopy_dir, "imp_LGR1_combined.RData"))
+load(file.path(canopy_dir, "imp_LGR2_combined.RData"))
+load(file.path(canopy_dir, "imp_LGR3_combined.RData"))
+load(file.path(canopy_dir, "imp_YMF_combined.RData"))
 
 # Tag each with instrument name
 imp.LGR1$instrument <- "LGR1"
@@ -180,7 +182,7 @@ if (length(ymf_imp_name) > 0) {
 message("\n=== Loading soil flux data ===")
 
 soil_flux <- read.csv(
-  file.path(data_dir, "soil", "semirigid_chamber_flux.csv"),
+  file.path(soil_dir, "semirigid_chamber_flux.csv"),
   stringsAsFactors = FALSE)
 
 message("Soil flux: ", nrow(soil_flux), " rows")

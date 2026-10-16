@@ -1,6 +1,25 @@
-The data tables in data/ and results/ are licensed under the Creative Commons
-Attribution 4.0 International License (CC BY 4.0):
-https://creativecommons.org/licenses/by/4.0/
+Data licence
 
-Copyright (c) 2026 Jonathan Gewirtzman. Cite the paper and the source datasets
-listed in README.md when using them.
+The files in data/ are copies of datasets from other projects, or results derived from them,
+reproduced only so that this paper's analysis can be rerun. They are NOT new observations.
+Obtain the data from the original sources and cite those sources (see data/README.md). Do not
+count these files as additional or independent data in compilations, syntheses or
+meta-analyses: every closure in them belongs to its source dataset.
+
+Each copy remains under the licence of its source:
+
+  data/from_ymf_soil_zenodo/   Gewirtzman, J. (2026), Zenodo, doi:10.5281/zenodo.18779715:
+                               Creative Commons Attribution 4.0 International (CC BY 4.0),
+                               the licence of that record.
+  data/from_hf_stem_study/     J. Gewirtzman et al., in prep. (Harvard Forest Data Archive,
+                               DOI to follow): CC BY 4.0.
+  data/from_canopy_study/      Gewirtzman et al., in review: CC BY 4.0.
+  data/from_agsoil_study/      J. Gewirtzman et al., in prep.: CC BY 4.0.
+
+Results derived in this repository (data/derived_from_stem_raw/ and results/) are licensed under
+CC BY 4.0.
+
+CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+
+Copyright (c) 2026 Jonathan Gewirtzman (the in-preparation and in-review datasets and the
+derived results), and the authors of each source as cited in data/README.md.

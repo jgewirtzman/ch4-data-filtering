@@ -6,14 +6,14 @@
 #   soils along an upland-wetland gradient (CH4): upland + intermediate positions,
 #     and wetland positions; sigma and MDF computed here from the raw closure windows
 #     (Gewirtzman (2026), doi:10.5281/zenodo.18779715) with the paper's convention
-#   agricultural soil (CH4 and N2O, precise analyzers)           — data/agsoil (de-identified)
+#   agricultural soil (CH4 and N2O, precise analyzers)           — data/from_agsoil_study (de-identified)
 # Metrics per dataset: realized sigma vs datasheet; % below the reference and the
 # datasheet MDF; % removed by R2 <= 0.5; change in the magnitude of the mean and the
 # median when below-MDF or low-R2 closures are removed; % of values <= 0 (lost to log).
 #
 # Loads:  outputs/03_mdf_results.RData, outputs/10_seasonal_confounding.RData,
-#         data/external/lgr_manual_identification_results_soil.csv (or SOIL_WINDOWS),
-#         data/soil/CH4_best_flux_lgr_results_soil.csv, data/agsoil/
+#         data/from_ymf_soil_zenodo/ (soil closure windows, flagged readings only, or the full
+#         source file named in SOIL_WINDOWS; goFlux fits), data/from_agsoil_study/
 # Writes: outputs/20_generality.RData, outputs/20_generality_table.csv
 # ============================================================================
 
@@ -53,11 +53,13 @@ for (a in c("Noisier analyzer", "Precise analyzer")) {
 }
 
 # ── Soils along an upland–wetland gradient ───────────────────────────────────
-# Raw soil closure windows (75 MB) from the published soil-gradient dataset
-# (Gewirtzman (2026), doi:10.5281/zenodo.18779715). Place the file in data/external/,
-# or set SOIL_WINDOWS to its path.
-win_file <- Sys.getenv("SOIL_WINDOWS", file.path("data", "external", "lgr_manual_identification_results_soil.csv"))
-if (!file.exists(win_file)) stop("Soil closure windows not found; see README (data/external).")
+# Soil closure windows of the published soil-gradient dataset (Gewirtzman (2026),
+# doi:10.5281/zenodo.18779715): by default the copy in data/from_ymf_soil_zenodo/, reduced to the
+# readings inside the fitting windows (flag == 1) and the four columns used here. SOIL_WINDOWS
+# can name the complete source file (lgr_manual_identification_results_soil.csv, 75 MB) instead;
+# the results are the same.
+win_file <- Sys.getenv("SOIL_WINDOWS", file.path(soil_dir, "lgr_manual_identification_results_soil_flag1.csv.gz"))
+if (!file.exists(win_file)) stop("Soil closure windows not found: ", win_file, " (see data/from_ymf_soil_zenodo/README.md)")
 win <- fread(win_file)
 win <- win[flag == 1 & is.finite(CH4dry_ppb)]
 win[, POSIX.time := as.POSIXct(POSIX.time, tz = "UTC")]
@@ -65,7 +67,7 @@ setorder(win, UniqueID, POSIX.time)
 cl <- win[, .(sigma_i = sig2(CH4dry_ppb), t = as.numeric(diff(range(POSIX.time)), units = "secs") + 1,
               day = as.character(as.Date(POSIX.time[1]))), by = UniqueID]
 cl[, sigma_c := median(sigma_i, na.rm = TRUE), by = day]
-gf <- read.csv(file.path(data_dir, "soil", "CH4_best_flux_lgr_results_soil.csv"))
+gf <- read.csv(file.path(soil_dir, "CH4_best_flux_lgr_results_soil.csv"))
 cl <- merge(cl, gf[, c("UniqueID", "flux.term", "best.flux")], by = "UniqueID")
 cl[, `:=`(mdf_ref = Z95 * sigma_c / t * flux.term, mdf_ds = PREC_CH4_LGR / t * flux.term)]
 soil <- local({ e <- new.env(); load(file.path(output_dir, "10_seasonal_confounding.RData"), envir = e); e$soil })
@@ -81,7 +83,7 @@ for (pos in list(c("U", "I"), c("WD", "WS"))) {
 soil_sigma <- sm
 
 # ── Agricultural soil (de-identified) ────────────────────────────────────────
-ag <- read.csv(file.path(data_dir, "agsoil", "agsoil_closures_deidentified.csv"))
+ag <- read.csv(file.path(agsoil_dir, "agsoil_closures_deidentified.csv"))
 ag <- ag[!duplicated(ag[, c("CH4_flux", "N2O_flux", "CO2_flux")]), ]
 spec_ag <- c(CH4 = PREC_CH4_7810, N2O = PREC_N2O_7820)   # LI-7810 CH4, LI-7820 N2O, 1 s
 for (g in c("CH4", "N2O")) {

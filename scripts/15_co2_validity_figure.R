@@ -7,6 +7,9 @@
 # diagnostic (the Validity section of Results; Fig. 5).
 #
 # Layout: 4 columns (measurements) x 2 rows (CO2 top, CH4 bottom)
+#
+# Reads: data/from_hf_stem_study/figure_closures/fig5_co2_tracer.csv (the closures' raw readings,
+#        written by 14_figure_closures.R; no access to the raw archive)
 # =============================================================================
 
 library(ggplot2)
@@ -40,105 +43,25 @@ panel_exprs <- list(
   "**Ambiguous**"
 )
 
-# Base path for LGR data
-lgr_base <- file.path(getwd(), "data", "stem_raw", "LGR", "LGR1")
+# Readings of the four closures inside their computation windows (180 s), extracted
+# from the raw LGR1 records by 14_figure_closures.R
+fig5_raw <- read.csv(file.path("data", "from_hf_stem_study", "figure_closures", "fig5_co2_tracer.csv"),
+                     stringsAsFactors = FALSE,
+                     colClasses = c(time_s = "numeric", CO2d_ppm = "numeric", CH4d_ppm = "numeric"))
 
 # =============================================================================
-# 2. Function to read LGR file(s) and subset to computation window
+# 2. Subset each closure to its computation window
 # =============================================================================
 
-read_lgr_window <- function(date_str, comp_start, comp_end) {
-  dir_path <- file.path(lgr_base, date_str)
-
-  # Build computation window POSIXct boundaries
-  date_for_window <- as.Date(date_str)
-  t_start <- as.POSIXct(paste(date_for_window, comp_start),
-                         format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  t_end   <- as.POSIXct(paste(date_for_window, comp_end),
-                         format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
-
-  # Find all f*.txt files (unzipped) in the directory
-  txt_files <- list.files(dir_path, pattern = "^micro_.*_f[0-9]+\\.txt$",
-                          full.names = TRUE)
-
-  # Also check for zipped f*.txt.zip files
-  zip_files <- list.files(dir_path, pattern = "^micro_.*_f[0-9]+\\.txt\\.zip$",
-                          full.names = TRUE)
-
-  all_subsets <- list()
-
-  # Read unzipped files
-  for (fpath in txt_files) {
-    cat("  Reading:", basename(fpath), "\n")
-    raw <- read.csv(fpath, skip = 1, stringsAsFactors = FALSE,
-                    check.names = FALSE)
-    names(raw) <- trimws(names(raw))
-
-    raw$Time_parsed <- as.POSIXct(trimws(raw$Time),
-                                  format = "%m/%d/%Y %H:%M:%OS",
-                                  tz = "UTC")
-
-    subset_data <- raw[!is.na(raw$Time_parsed) &
-                         raw$Time_parsed >= t_start &
-                         raw$Time_parsed <= t_end, ]
-
-    if (nrow(subset_data) > 0) {
-      all_subsets[[length(all_subsets) + 1]] <- subset_data
-    }
-  }
-
-  # Read zipped files if we haven't found data yet
-  if (length(all_subsets) == 0 && length(zip_files) > 0) {
-    for (zpath in zip_files) {
-      cat("  Unzipping and reading:", basename(zpath), "\n")
-      tmp_dir <- tempdir()
-      unzipped <- unzip(zpath, exdir = tmp_dir)
-
-      for (fpath in unzipped) {
-        raw <- read.csv(fpath, skip = 1, stringsAsFactors = FALSE,
-                        check.names = FALSE)
-        names(raw) <- trimws(names(raw))
-
-        raw$Time_parsed <- as.POSIXct(trimws(raw$Time),
-                                      format = "%m/%d/%Y %H:%M:%OS",
-                                      tz = "UTC")
-
-        subset_data <- raw[!is.na(raw$Time_parsed) &
-                             raw$Time_parsed >= t_start &
-                             raw$Time_parsed <= t_end, ]
-
-        if (nrow(subset_data) > 0) {
-          all_subsets[[length(all_subsets) + 1]] <- subset_data
-        }
-
-        # Clean up temp file
-        file.remove(fpath)
-      }
-    }
-  }
-
-  if (length(all_subsets) == 0) {
-    stop("No data found in computation window for date ", date_str,
-         " (", comp_start, " - ", comp_end, ")")
-  }
-
-  # Combine all subsets
-  combined_raw <- do.call(rbind, all_subsets)
-
-  # Compute elapsed time in seconds from start
-  combined_raw$elapsed_s <- as.numeric(
-    difftime(combined_raw$Time_parsed, t_start, units = "secs")
-  )
-
-  # Extract CO2 and CH4 (dry mole fractions)
-  combined_raw$CO2_ppm <- as.numeric(trimws(combined_raw[["[CO2]d_ppm"]]))
-  combined_raw$CH4_ppb <- as.numeric(trimws(combined_raw[["[CH4]d_ppm"]])) * 1000
-
-  # Enforce 180-second window cap
-  combined_raw <- combined_raw[combined_raw$elapsed_s >= 0 &
-                                 combined_raw$elapsed_s <= MAX_ELAPSED_S, ]
-
-  return(combined_raw[, c("elapsed_s", "CO2_ppm", "CH4_ppb")])
+read_window <- function(id, date_str, comp_start) {
+  t_start <- as.POSIXct(paste(as.Date(date_str), comp_start),
+                        format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  w <- fig5_raw[fig5_raw$UniqueID == id, ]
+  if (nrow(w) == 0) stop("No readings for ", id, " in data/from_hf_stem_study/figure_closures/fig5_co2_tracer.csv")
+  out <- data.frame(elapsed_s = w$time_s - as.numeric(t_start),   # seconds from window start
+                    CO2_ppm   = w$CO2d_ppm,
+                    CH4_ppb   = w$CH4d_ppm * 1000)
+  out[out$elapsed_s >= 0 & out$elapsed_s <= MAX_ELAPSED_S, ]
 }
 
 # =============================================================================
@@ -150,10 +73,10 @@ all_data <- list()
 for (i in seq_len(nrow(measurements))) {
   cat("Reading measurement:", measurements$panel_label[i], "\n")
 
-  df <- read_lgr_window(
+  df <- read_window(
+    id         = measurements$UniqueID[i],
     date_str   = measurements$date_str[i],
-    comp_start = measurements$comp_start[i],
-    comp_end   = measurements$comp_end[i]
+    comp_start = measurements$comp_start[i]
   )
 
   df$panel       <- measurements$panel_label[i]

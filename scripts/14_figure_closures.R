@@ -2,8 +2,9 @@
 # 14_figure_closures.R — Readings of the closures drawn in Fig. 2, Fig. 5 and the
 #                        worked example (Sect. S1, Fig. S1), from the raw records
 #
-# Writes small, tracked CSVs to data/figure_closures/ so that 15_co2_validity_figure.R
-# and 17_sigma_figures.R run without the raw archive (data/stem_raw/, ~650 MB):
+# Writes small, tracked CSVs to data/from_hf_stem_study/figure_closures/ so that
+# 15_co2_validity_figure.R and 17_sigma_figures.R run without the raw archive
+# (data/stem_raw/, ~650 MB):
 #   fig5_co2_tracer.csv          Fig. 5: the four CO2-tracer example closures (LGR1)
 #   fig2_sigma_day.csv           Fig. 2: every closure of the precise analyzer's example
 #                                day (LI-7810, 2025-06-03)
@@ -21,7 +22,7 @@
 source("scripts/00_setup.R")
 
 local({
-  if (!dir.exists(file.path(data_dir, "stem_raw", "LGR", "LGR1"))) {
+  if (!raw_available) {
     message("14: raw records (data/stem_raw/) not found; skipping. 15 and 17 use the ",
             "readings already in ", fig_closures_dir, "/")
     return(invisible(NULL))
@@ -71,7 +72,7 @@ local({
     comp_start = c("11:28:30", "12:04:13", "13:02:55", "11:31:00"),
     comp_end   = c("11:31:30", "12:07:13", "13:05:55", "11:34:00"),
     stringsAsFactors = FALSE)
-  lgr1 <- file.path(data_dir, "stem_raw", "LGR", "LGR1")
+  lgr1 <- file.path(raw_dir, "LGR", "LGR1")
   read_window <- function(date_str, comp_start, comp_end) {
     t_start <- as.POSIXct(paste(as.Date(date_str), comp_start), format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
     t_end   <- as.POSIXct(paste(as.Date(date_str), comp_end),   format = "%Y-%m-%d %H:%M:%S", tz = "UTC")

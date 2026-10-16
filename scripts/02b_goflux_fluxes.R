@@ -95,7 +95,7 @@ if (!resume) {
 message("\n=== Extracting windows from the raw records ===")
 
 day_list <- windows %>% distinct(analyzer, date_str) %>% arrange(date_str, analyzer)
-raw_7810_dir <- file.path(data_dir, "stem_raw", "7810", "raw-7810-tree_flux_data")
+raw_7810_dir <- file.path(raw_dir, "7810", "raw-7810-tree_flux_data")
 manID_all <- list()
 
 for (i in seq_len(nrow(day_list))) {

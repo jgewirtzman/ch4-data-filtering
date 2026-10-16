@@ -1,9 +1,16 @@
 # Raw 1 Hz analyzer records (not in this repository)
 
-The raw concentration records for the stem closures (~650 MB) are archived separately,
-in the Harvard Forest Data Archive package of the stem study (DOI to follow). Place them here to recompute precision and fluxes from
-scratch with `02_allan_deviation.R` and `02b_goflux_fluxes.R`; everything downstream
-(03 onward) runs from the intermediate results in `outputs/`.
+The raw concentration records for the stem closures (~650 MB) belong to the Harvard Forest stem
+study (J. Gewirtzman et al., in prep.) and will be archived in its Harvard Forest Data Archive
+package (DOI to follow). This folder is only the documented local location for them: git ignores
+its contents. Place the records here to recompute precision and fluxes from scratch with
+`02_allan_deviation.R` and `02b_goflux_fluxes.R` (`scripts/run_all.R` then runs them and refreshes
+`data/derived_from_stem_raw/`). Without them, everything from 03 onward runs from the saved
+results of 02 and 02b in `data/derived_from_stem_raw/`.
+
+The readings of the few closures drawn in Figs. 2, 5 and S1 are copied from these
+records to `data/from_hf_stem_study/figure_closures/` (tracked) by `14_figure_closures.R`, so the
+figure scripts 15 and 17 never read this folder.
 
 ## 7810/
 LI-COR LI-7810 records from the 2025 Harvard Forest stem campaigns.
@@ -19,7 +26,7 @@ several days as sub-folders (e.g. `2024-12-03/2024-12-02`); the catalog in 02 de
 into them.
 
 ## Closures without a raw record
-Some closures in `data/stem/HF_2023-2025_tree_flux_corrected.csv` have no surviving raw
+Some closures in `data/from_hf_stem_study/HF_2023-2025_tree_flux_corrected.csv` have no surviving raw
 record (the 1 May 2024 files are empty, and no record exists for 1-2 Oct 2025). They
 cannot be refitted or given their own precision, so `03_mdf_computation.R` drops them;
 1547 stem closures are analysed.

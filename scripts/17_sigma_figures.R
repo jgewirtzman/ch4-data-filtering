@@ -20,7 +20,9 @@
 #
 # Loads: outputs/02_allan_deviation.RData, outputs/02b_manID.RData,
 #        outputs/02b_goflux_fluxes.RData,
-#        analysis/precision_bakeoff/synthetic_results.rds
+#        analysis/precision_bakeoff/synthetic_results.rds,
+#        data/from_hf_stem_study/figure_closures/fig2_sigma_day.csv and worked_example_closures.csv
+#        (readings of the closures drawn, from 14_figure_closures.R; no raw-archive access)
 # ============================================================================
 
 source("scripts/00_setup.R")
@@ -39,37 +41,28 @@ win <- manID %>% filter(flag == 1) %>% arrange(UniqueID, POSIX.time)
 per_closure <- win %>% group_by(UniqueID, analyzer, date_str) %>%
   summarise(n = n(), rise = last(CH4dry_ppb) - first(CH4dry_ppb),
             sigma_i = sigma_closure(CH4dry_ppb, POSIX.time), .groups = "drop")
-# Two near-linear Noisier analyzer closures from one well-sampled day: a flux just below the MDF
-# (about 0.6-0.95 x MDF, where the MDF and a regression disagree) and a large flux.
-# Near-linear = straight-line residual SD close to the closure's own sigma_i (no saturation,
-# no placement spike), so the figure shows the estimator, not a misfit.
-lin <- win %>% group_by(UniqueID, analyzer, date_str) %>%
-  summarise(t = list(as.numeric(POSIX.time - POSIX.time[1], units = "secs")), x = list(CH4dry_ppb), .groups = "drop") %>%
-  mutate(n = lengths(x), sigma_i = mapply(function(x, t) sigma_closure(x, as.POSIXct(t, origin = "1970-01-01")), x, t),
-         slope = mapply(function(t, x) coef(lm(x ~ t))[2], t, x),
-         resid_sd = mapply(function(t, x) sd(residuals(lm(x ~ t))), t, x),
-         jump = vapply(x, function(v) max(abs(diff(v))), numeric(1))) %>%
-  filter(analyzer == "LGR1", n >= 170, n <= 240, resid_sd < 1.25 * sigma_i, jump < 12 * sigma_i)
-day_pick <- lin %>% group_by(date_str) %>%
-  summarise(k = n(), lo = sum(between(abs(slope) * 180 / sigma_i, 1.2, 1.9)), hi = sum(abs(slope) * 180 / sigma_i > 25), .groups = "drop") %>%
-  filter(lo > 0, hi > 0) %>% arrange(desc(k)) %>% slice(1)
-ex_day <- day_pick$date_str
-cand <- lin %>% filter(date_str == ex_day)
-ex_lo <- cand %>% filter(between(abs(slope) * 180 / sigma_i, 1.2, 1.9)) %>% arrange(resid_sd / sigma_i) %>% slice(1)
-ex_hi <- cand %>% filter(abs(slope) * 180 / sigma_i > 25) %>% arrange(resid_sd / sigma_i) %>% slice(1)
+# The worked example (Sect. S1): two near-linear noisier analyzer closures from one
+# well-sampled day, a flux just below the MDF and a large flux (pick_worked_example(), 00_setup.R)
+pick <- pick_worked_example(win)
+ex_day <- pick$day
+ex_lo <- pick$low
+ex_hi <- pick$high
 ex_id <- ex_hi$UniqueID
 # Display the raw-record segments and per-closure sigma that 02 computed (the source of every
 # campaign sigma and MDF in the paper), not goFlux's windows: goFlux's window functions truncate
 # timestamps to whole seconds, which at ~0.995 s logging adds one duplicate second and one edge
-# reading per window.
+# reading per window. The segments' readings were extracted from the raw record by
+# 14_figure_closures.R (data/from_hf_stem_study/figure_closures/worked_example_closures.csv).
 fit_env <- new.env(); load(file.path(output_dir, "02b_goflux_fluxes.RData"), envir = fit_env)
 stem_fl <- setNames(fit_env$df$fl_UniqueID, fit_env$df$stem_id)
-day_raw <- local({ f <- lgr_catalog$folder[lgr_catalog$machine == "LGR1" & lgr_catalog$date_str == ex_day]
-                   do.call(rbind, lapply(f, load_lgr_day)) })
+we_raw <- read.csv(file.path(fig_closures_dir, "worked_example_closures.csv"), stringsAsFactors = FALSE,
+                   colClasses = c(time_s = "numeric", CH4d_ppm = "numeric"))
 seg_02 <- function(stem) {
-  e <- field_logs[field_logs$UniqueID == stem_fl[[stem]], ][1, ]
-  s <- day_raw[day_raw$POSIX.time >= e$comp_start_posix & day_raw$POSIX.time <= e$comp_end_posix, ]
-  list(t = as.numeric(s$POSIX.time - s$POSIX.time[1], units = "secs"), x = s$CH4dry_ppb, posix = s$POSIX.time)
+  s <- we_raw[we_raw$UniqueID == stem, ]
+  if (nrow(s) == 0) stop("No readings for worked-example closure ", stem, " in ", fig_closures_dir,
+                         "/worked_example_closures.csv; rerun 14_figure_closures.R with the raw records")
+  posix <- .POSIXct(s$time_s, tz = "UTC")
+  list(t = as.numeric(posix - posix[1], units = "secs"), x = s$CH4d_ppm * 1000, posix = posix)
 }
 sc_02 <- setNames(allan_df_lgr$sc_CH4, allan_df_lgr$UniqueID)
 for (nm in c("ex_lo", "ex_hi")) {
@@ -89,8 +82,11 @@ wr_day <- mad_days$wr_sd_CH4[mad_days$instrument == "LGR1" & mad_days$date_str =
 # and second differences (all centred on zero); then sigma_i of every closure that day and
 # their median, the campaign sigma.
 wk_day <- "2025-06-03"
-wk <- local({ e <- new.env(); load(file.path(output_dir, "02b_manID.RData"), envir = e); e$manID }) %>%
-  filter(flag == 1, is.finite(CH4dry_ppb), analyzer == "LI-7810", date_str == wk_day) %>%
+# Every closure window of that day (02b), from
+# data/from_hf_stem_study/figure_closures/fig2_sigma_day.csv (14_figure_closures.R)
+wk <- read.csv(file.path(fig_closures_dir, "fig2_sigma_day.csv"), stringsAsFactors = FALSE,
+               colClasses = c(time_s = "numeric", CH4dry_ppb = "numeric")) %>%
+  mutate(POSIX.time = .POSIXct(time_s, tz = "UTC")) %>%
   arrange(UniqueID, POSIX.time) %>% group_by(UniqueID) %>%
   mutate(t = as.numeric(POSIX.time - POSIX.time[1], units = "secs")) %>% ungroup()
 wk_s <- wk %>% group_by(UniqueID) %>%

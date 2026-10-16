@@ -16,11 +16,20 @@ source("scripts/00_setup.R")
 # 01: Load and prepare all flux datasets
 source("scripts/01_load_data.R")
 
-# 02: Per-closure precision (second-difference sigma; Allan deviation for comparison)
-#     and campaign sigma, from the raw records
-source("scripts/02_allan_deviation.R")
-# 02b: goFlux re-fit of every stem closure (RESUME_02B=1 reuses a previous fit; README)
-source("scripts/02b_goflux_fluxes.R")
+if (raw_available) {
+  # 02: Per-closure precision (second-difference sigma; Allan deviation for comparison)
+  #     and campaign sigma, from the raw records
+  source("scripts/02_allan_deviation.R")
+  # 02b: goFlux re-fit of every stem closure (RESUME_02B=1 reuses a previous fit; README)
+  source("scripts/02b_goflux_fluxes.R")
+  # Refresh the tracked copies of their results used when the raw records are absent
+  file.copy(file.path(output_dir, DERIVED_FILES), file.path(derived_dir, DERIVED_FILES), overwrite = TRUE)
+} else {
+  # Without the raw stem records (data/stem_raw/, not in the repository), 03 onward use the
+  # saved results of 02 and 02b in data/derived_from_stem_raw/ (copied to outputs/ by 00_setup.R)
+  message("Raw stem records not found in data/stem_raw/: skipping 02, 02b and 14; using ",
+          derived_dir, "/")
+}
 
 # 03: MDF thresholds and below-MDF flags (stems and canopy)
 source("scripts/03_mdf_computation.R")
@@ -39,6 +48,10 @@ source("scripts/10_seasonal_confounding.R")
 
 # 13: Scaling uncertainty / variance decomposition
 source("scripts/13_scaling_uncertainty.R")
+
+# 14: Readings of the closures drawn in Figs. 2, 5 and S1 -> data/from_hf_stem_study/figure_closures/
+#     (from the raw records after 02b; skipped without them, and 15/17 use the tracked CSVs)
+source("scripts/14_figure_closures.R")
 
 # 15: CO2 validity example closures
 source("scripts/15_co2_validity_figure.R")
