@@ -26,16 +26,13 @@ relog <- function(x, dt, how) {
     k <- floor(length(x) / dt); colMeans(matrix(x[seq_len(k * dt)], nrow = dt))
   } else x[seq(1, length(x), by = dt)]
 }
-sig_of <- function(x, dt) {                               # second-difference sigma of an evenly logged series
-  d2 <- diff(x, differences = 2); 1.4826 * median(abs(d2 - median(d2))) / sqrt(6)
-}
 res <- list()
 for (i in seq_len(nrow(ids))) {
   x <- win$CH4dry_ppb[win$UniqueID == ids$UniqueID[i]]
   for (dt in c(1, 2, 5, 10)) for (how in c("average", "snapshot")) {
     if (dt == 1 && how == "snapshot") next
     res[[length(res) + 1]] <- data.frame(analyzer = ids$analyzer[i], id = ids$UniqueID[i], dt = dt,
-                                         how = if (dt == 1) "1 s record" else how, sigma = sig_of(relog(x, dt, how), dt))
+                                         how = if (dt == 1) "1 s record" else how, sigma = sigma_closure(relog(x, dt, how)))   # evenly spaced by construction: no timestamps needed
   }
 }
 res <- do.call(rbind, res)

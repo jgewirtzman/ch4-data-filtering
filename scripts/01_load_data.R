@@ -5,7 +5,7 @@
 #   1. Stem flux data (HF 2023-2025, corrected) + chamber geometry
 #   2. Canopy flux data (HF goFlux compiled)
 #   3. YMF canopy flux data (Yale-Myers Forest black oak)
-#   4. manID concentration timeseries (per-measurement, for Allan deviation)
+#   4. manID concentration timeseries (per-measurement, for per-closure precision)
 #   5. Continuous imported data (for rolling window precision)
 #   6. Soil flux data (semirigid chamber)
 #

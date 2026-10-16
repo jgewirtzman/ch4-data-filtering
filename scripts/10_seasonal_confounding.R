@@ -341,7 +341,7 @@ print(as.data.frame(final_vals), row.names = FALSE)
 cat("\n=== Summary: Seasonal confounding evidence ===\n")
 
 # Mean temperature of excluded vs retained measurements
-cat("\nExcluded (by any of R\u00b2>0.5 or Chr95%) vs retained:\n")
+cat("\nExcluded (by R\u00b2 <= 0.5 or below the campaign-sigma 95% MDF) vs retained:\n")
 excluded <- df$filter_status != "Passes all"
 cat("  Retained: n=", sum(!excluded),
     ", mean airt=", round(mean(df$airt[!excluded], na.rm=TRUE), 1), "\u00b0C",
@@ -370,9 +370,9 @@ message("\n=== Stem seasonal confounding analysis complete ===")
 #
 #  SOIL DATA: REPEAT SEASONAL CONFOUNDING ANALYSIS
 #
-#  The wetland soil dataset (YMF semirigid chamber, n~288) lacks raw
-#  concentration timeseries, so MDF/SNR cannot be computed.  However the
-#  R²-based confounding analysis translates directly.
+#  The Yale-Myers upland-wetland soil fluxes (n~288). Only the R²-based
+#  analysis is done here; the soil MDF is computed from the raw closure
+#  windows in 20_generality.R (used for Fig. 6d).
 #
 #  Available columns
 #    CH4_LM_r2             → R² of the linear model (used for ALL rows,
@@ -563,7 +563,7 @@ message("\n=== Soil C: R\u00b2 filter status by season ===")
 soil$fails_r2_05 <- soil$r2 <= 0.5
 soil$fails_r2_07 <- soil$r2 <= 0.7
 
-# Use ASCII-safe labels to avoid Unicode encoding mismatches in ggplot
+# Filter-status labels (console tables)
 soil_lbl_pass  <- "Passes R2 > 0.7"
 soil_lbl_mid   <- "Fails R2 > 0.7 only"
 soil_lbl_fail  <- "Fails R2 > 0.5"
@@ -691,7 +691,7 @@ if ("landscape_position" %in% names(soil) && length(unique(soil$landscape_positi
 
 cat("\n\n=== COMBINED SUMMARY: Seasonal confounding ===\n")
 cat("\nStem data (Harvard Forest, n=", stem_n, "):\n")
-cat("  Dormant exclusion (R\u00b2>0.5 or Chr95%): ", stem_pct_dorm_excl, "%\n")
+cat("  Dormant exclusion (R\u00b2 <= 0.5 or campaign-sigma 95% MDF): ", stem_pct_dorm_excl, "%\n")
 cat("  Growing exclusion: ", stem_pct_grow_excl, "%\n")
 
 cat("\nSoil data (YMF wetland, n=", n_soil, "):\n")

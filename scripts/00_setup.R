@@ -10,7 +10,6 @@ if (!grepl("UTF-8", Sys.getlocale("LC_CTYPE"), ignore.case = TRUE))
 # Libraries
 library(dplyr)
 library(ggplot2)
-library(ggridges)
 library(tidyr)
 library(scales)
 library(patchwork)
@@ -37,12 +36,15 @@ PREC_CO2_LGR  <- 0.35   # ppm
 PREC_CH4_7810 <- 0.6    # ppb
 PREC_CO2_7810 <- 3.5    # ppm
 
-# ── Detection-limit convention (shared with the stem-flux guidelines paper / goFlux fork) ──
+# LI-COR LI-7820 (agricultural-soil N2O)
+PREC_N2O_7820 <- 0.4    # ppb
+
+# ── Detection-limit convention (as in Gewirtzman et al., in prep., and the goFlux fork) ──
 # Reference MDF = Z95 * sigma_campaign / t * flux_term
 #   Z95            two-sided 95 % normal quantile (1.96; the "2 sigma" criterion)
 #   sigma_campaign median over the day's closures of the per-closure second-difference
 #                  precision (sigma_closure / sigma_campaign below); the whole-record MAD of
-#                  first differences (precision_mad) is kept as a comparison only
+#                  first differences (precision_mad_runs) is kept as a comparison only
 #   t              closure length in SECONDS (not nb.obs: LGR2 logs every 10 s,
 #                  the YMF oak record every 5 s)
 Z90 <- qnorm(0.95); Z95 <- qnorm(0.975); Z99 <- qnorm(0.995)
@@ -51,8 +53,9 @@ Z90 <- qnorm(0.95); Z95 <- qnorm(0.975); Z99 <- qnorm(0.995)
 # All variants share MDF = k * sigma / t * flux_term and differ only in where
 # sigma comes from and what k is:
 #   manuf   datasheet sigma (1 s spec), k = 1            (goFlux default)
-#   wass**  campaign MAD sigma, k = z (90/95/99 %)       (reference = wass95)
-#   chr**   per-closure Allan sigma, k = 3 * t_crit      (conservative comparison;
+#   wass**  campaign sigma (closure median of the second-difference sigma),
+#           k = z (90/95/99 %)                           (reference = wass95)
+#   chr**   per-closure Allan deviation, k = 3 * t_crit  (conservative comparison;
 #           NOT Christiansen et al. 2015, whose MDF is precision / t with k = 1)
 MDF_LABELS <- c(
   manuf  = "Datasheet \u03c3 (k = 1)",
@@ -61,9 +64,6 @@ MDF_LABELS <- c(
   chr90  = "Per-closure \u03c3 \u00d73t 90%", chr95 = "Per-closure \u03c3 \u00d73t 95%",
   chr99  = "Per-closure \u03c3 \u00d73t 99%"
 )
-MDF_APPROACH_LABELS <- c(Manufacturer = "Datasheet \u03c3",
-                         Campaign = "Campaign \u03c3 (z)",
-                         PerClosure = "Per-closure \u03c3 \u00d7 3t")
 
 # ── Chamber geometry constants ──────────────────────────────────────────────
 SURFAREA_M2    <- pi * 0.0508^2  # m^2, collar radius = 5.08 cm
@@ -71,7 +71,6 @@ R_hPa_L        <- 83.14472      # hPa*L/(mol*K), ideal gas constant
 # Analyzer internal volume added to the collar volume (tree_volumes.csv already holds
 # collar + cap + 28.9 cm3 of tubing); 0.028 L for both analyzers (LI-7810 total sample volume).
 ANALYZER_VOL_L <- 0.028
-EXTRA_TUBE_VOL <- ANALYZER_VOL_L   # legacy name (was mislabelled 'tubing')
 
 # ── Helper functions ────────────────────────────────────────────────────────
 
@@ -165,6 +164,20 @@ slope_fit_stats <- function(x, t_s) {
   c(lm_p  = summary(fit)$coefficients[2, 4],
     lm_se = summary(fit)$coefficients[2, 2],
     ac1   = suppressWarnings(cor(r[-1], r[-length(r)])))
+}
+
+# ── Known-truth simulations (18_known_truth_simulation.R, 22_transform_inference.R) ──
+# Monthly mean air temperature of a simulated field year: ~ -3 C (Jan) to 25 C (Jul)
+SIM_TEMP_M <- 11 + 14 * sin(2 * pi * ((1:12) - 4.5) / 12)
+
+#' True stem fluxes of n closures at air temperature `temp`: lognormal emission with a
+#' Q10 = 2.5 seasonal median (0.12 nmol m-2 s-1 at 15 C, scaled by `mult`), and a share
+#' `p_up` of small true uptake.
+sim_true_flux <- function(n, temp, mult = 1, sdlog = 1.3, p_up = 0.10) {
+  f <- rlnorm(n, log(0.12 * 2.5^((temp - 15) / 10)), sdlog) * mult
+  up <- runif(n) < p_up
+  f[up] <- -abs(rnorm(sum(up), 0.02, 0.01))
+  f
 }
 
 #' Compute Allan deviation per UniqueID from a manID-style data frame

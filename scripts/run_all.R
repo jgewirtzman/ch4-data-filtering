@@ -16,11 +16,13 @@ source("scripts/00_setup.R")
 # 01: Load and prepare all flux datasets
 source("scripts/01_load_data.R")
 
-# 02: Compute Allan deviation (per-measurement noise)
+# 02: Per-closure precision (second-difference sigma; Allan deviation for comparison)
+#     and campaign sigma, from the raw records
 source("scripts/02_allan_deviation.R")
+# 02b: goFlux re-fit of every stem closure (RESUME_02B=1 reuses a previous fit; README)
 source("scripts/02b_goflux_fluxes.R")
 
-# 03: Compute MDF thresholds and quality filter flags
+# 03: MDF thresholds and below-MDF flags (stems and canopy)
 source("scripts/03_mdf_computation.R")
 
 # 07: Below-MDF treatment comparison

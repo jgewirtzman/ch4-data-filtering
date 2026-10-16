@@ -35,7 +35,7 @@ if (!"inst_label" %in% names(df)) {
 }
 
 # ============================================================
-# PART 12: BELOW-MDF TREATMENT COMPARISON
+# BELOW-MDF TREATMENT COMPARISON
 # ============================================================
 
 message("\n=== Below-MDF treatment comparison ===")
@@ -58,7 +58,7 @@ k <- 0
 for (filt_name in names(mdf_filters)) {
   flag_col <- mdf_filters[[filt_name]]
   below <- df[[flag_col]]
-  below[is.na(below)] <- FALSE  # if no Allan data, keep measurement
+  below[is.na(below)] <- FALSE  # no MDF (no precision estimate): keep the measurement
 
   n_below <- sum(below)
   n_above <- sum(!below)

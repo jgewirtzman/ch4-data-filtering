@@ -3,7 +3,7 @@
 #
 # Replaces the legacy fluxes in HF_2023-2025_tree_flux_corrected.csv (the source
 # study's OLS on the field-log window for 2023-24; a 60-s best-CO2-R2 sub-window of the
-# REMARK for 2025) with the shared convention of the guidelines paper / goFlux fork:
+# REMARK for 2025) with the convention of Gewirtzman et al. (in prep.) and the goFlux fork:
 #
 #   closure window  = field-log comp_start..comp_end (LGR, analyzer clock) or the
 #                     REMARK run (LI-7810); no dead band, no sub-window search
@@ -43,6 +43,8 @@ message("goFlux ", packageVersion("goFlux"), "; time zone ", tz_local)
 best_args <- list(g.limit = 2, k.ratio = 1, p.val = 0.05, warn.length = 60)
 qc_set <- list(c0.mult = 1.5, min.obs = 60, ambient.sigma = 3, ambient.secs = 10, ambient.pre = 60,
                noisy.mult = 1.5, co2.tracer.p = 0.05)
+# RESUME_02B=1 skips window extraction and fitting (~minutes) and reloads them from
+# outputs/02b_checkpoint.RData + 02b_manID.RData written by a previous full run (README).
 resume <- nzchar(Sys.getenv("RESUME_02B")) && file.exists(file.path(output_dir, "02b_checkpoint.RData")) &&
           file.exists(file.path(output_dir, "02b_manID.RData"))
 if (resume) {

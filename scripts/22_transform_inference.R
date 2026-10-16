@@ -23,7 +23,7 @@ set.seed(22)
 e <- new.env(); load(file.path(output_dir, "10_seasonal_confounding.RData"), envir = e)
 d <- e$df_gla %>% filter(is.finite(CH4_flux_nmolpm2ps), is.finite(airt)) %>%
   transmute(flux = CH4_flux_nmolpm2ps, species = species_label, stand = location, tree = factor(Tree), airt,
-            mdf = CH4_MDF_ref)
+            mdf = CH4_MDF_ref, season)
 s_mdf <- median(d$mdf, na.rm = TRUE)
 
 TRANS <- list(
@@ -83,8 +83,7 @@ print(as.data.frame(sp_means), digits = 3)
 print(real, digits = 3); message("Reference Q10 (arithmetic bin means): ", round(q10_ref, 2)); print(ord)
 
 # ── 1b. The same workflows on 20 everyday comparisons ────────────────────────
-dd0 <- d %>% mutate(season = ifelse(grepl("Growing", e$df_gla$season[match(seq_len(nrow(d)), seq_len(nrow(d)))]), "Growing", "Dormant"))
-dd0$season <- ifelse(grepl("Growing", (e$df_gla %>% filter(is.finite(CH4_flux_nmolpm2ps), is.finite(airt)))$season), "Growing", "Dormant")
+dd0 <- d %>% mutate(season = ifelse(grepl("Growing", season), "Growing", "Dormant"))
 TRK <- list("Raw" = function(x) x, "log10, positives" = function(x) log10(pmax(x, 1e-12)), "log10(x + 1)" = function(x) log10(x + 1),
             "arcsinh(x)" = function(x) asinh(x), "arcsinh(x / MDF)" = function(x) asinh(x / s_mdf), "Ranks" = function(x) rank(x))
 test_all <- function(dd, term) sapply(names(TRK), function(nm) {
@@ -116,23 +115,18 @@ wf <- do.call(rbind, lapply(names(TRK), function(nm) {
 print(wf[, c("method", "used", "p", "ratio")], digits = 3)
 
 # ── 2. Known-truth simulation ────────────────────────────────────────────────
-FLUX_TERM <- 2.2; N_OBS <- 180; SIG <- 3.6; Z95 <- qnorm(0.975)
+# true fluxes and monthly temperatures as in 18 (sim_true_flux, SIM_TEMP_M in 00_setup.R)
+FLUX_TERM <- 2.2; N_OBS <- 180; SIG <- 3.6
 tt <- seq_len(N_OBS) - 1; tc <- tt - mean(tt); Sxx <- sum(tc^2)
-temp_m <- 11 + 14 * sin(2 * pi * ((1:12) - 4.5) / 12)
-true_flux <- function(n, temp, mult = 1) {
-  f <- rlnorm(n, log(0.12 * 2.5^((temp - 15) / 10)), 1.3) * mult
-  up <- runif(n) < 0.10; f[up] <- -abs(rnorm(sum(up), 0.02, 0.01)); f
-}
+temp_m <- SIM_TEMP_M
+true_flux <- function(n, temp, mult = 1) sim_true_flux(n, temp, mult = mult)
 measure <- function(f) {                      # fitted flux of each closure under white noise
   x <- outer(f / FLUX_TERM, tt) + matrix(rnorm(length(f) * N_OBS, 0, SIG), length(f))
   as.vector(x %*% tc) / Sxx * FLUX_TERM
 }
 s_sim <- Z95 * SIG / N_OBS * FLUX_TERM        # the reference MDF of these closures
 TRANS_SIM <- TRANS; TRANS_SIM[["arcsinh(x / MDF)"]]$f <- function(x) asinh(x / s_sim)
-true_flux_up <- function(n, temp, p_up) {     # same emission distribution, a larger share of small uptake
-  f <- rlnorm(n, log(0.12 * 2.5^((temp - 15) / 10)), 1.3)
-  up <- runif(n) < p_up; f[up] <- -abs(rnorm(sum(up), 0.02, 0.01)); f
-}
+true_flux_up <- function(n, temp, p_up) sim_true_flux(n, temp, p_up = p_up)   # same emission, more small uptake
 one_group_test <- function(mult, n_month = 10, p_up2 = NULL) {
   g1 <- unlist(lapply(1:12, function(m) measure(true_flux(n_month, temp_m[m]))))
   g2 <- unlist(lapply(1:12, function(m) measure(if (is.null(p_up2)) true_flux(n_month, temp_m[m], mult) else true_flux_up(n_month, temp_m[m], p_up2))))
@@ -149,11 +143,8 @@ grp_sim <- data.frame(method = colnames(p_null), false_pos = 100 * colMeans(p_nu
 # Whether and how much: two groups, true means 2-fold apart; each workflow's test and reported ratio
 BACK <- list("Raw" = function(m) m, "log10, positives" = function(m) 10^m, "log10(x + 1)" = function(m) 10^m - 1,
              "arcsinh(x)" = function(m) sinh(m), "arcsinh(x / MDF)" = function(m) s_sim * sinh(m))
-true_flux_hot <- function(n, temp) {           # same median, wider spread: mean 2-fold, typical closure unchanged
-  sd2 <- sqrt(1.3^2 + 2 * log(2))
-  f <- rlnorm(n, log(0.12 * 2.5^((temp - 15) / 10)), sd2)
-  up <- runif(n) < 0.10; f[up] <- -abs(rnorm(sum(up), 0.02, 0.01)); f
-}
+true_flux_hot <- function(n, temp)             # same median, wider spread: mean 2-fold, typical closure unchanged
+  sim_true_flux(n, temp, sdlog = sqrt(1.3^2 + 2 * log(2)))
 two_groups <- function(n_month = 10, hot = FALSE) {
   g1 <- unlist(lapply(1:12, function(m) measure(true_flux(n_month, temp_m[m]))))
   g2 <- unlist(lapply(1:12, function(m) measure(if (hot) true_flux_hot(n_month, temp_m[m]) else true_flux(n_month, temp_m[m], 2))))

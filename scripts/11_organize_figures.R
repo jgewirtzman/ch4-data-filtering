@@ -4,42 +4,42 @@
 #
 # Main figures are complete compositions built in R (17, 15, 19); nothing is
 # pasted together here. SI numbers follow the order in which
-# the Supplement presents them (Figure S1 is the worked example in Sect. S1).
-# Run last (see run_all.R).
+# the Supplement presents them (Figure S1 is the worked example in Sect. S1;
+# the Supplement includes figures/worked_example_mdf.png directly, so the
+# figS01 copy is for completeness only). A figure missing from the source
+# folder is an error. Run last (see run_all.R).
 # ============================================================================
 
-fig_dir  <- "figures"
+fig_dir  <- Sys.getenv("FIG_DIR", "figures")   # as in 00_setup.R
 main_dir <- file.path(fig_dir, "main_text")
 si_dir   <- file.path(fig_dir, "SI")
 unlink(main_dir, recursive = TRUE); unlink(si_dir, recursive = TRUE)
 dir.create(main_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(si_dir,   recursive = TRUE, showWarnings = FALSE)
 
-resolve_fig <- function(f) {
-  if (file.exists(file.path(fig_dir, f))) return(file.path(fig_dir, f))
-  stop("Figure not found: ", f)
-}
+# Copy each figure's PNG (required) and PDF (when the script writes one)
 copy_set <- function(map, dest) {
   for (nm in names(map)) {
-    for (ext in c(".png", ".pdf")) {
-      src <- tryCatch(resolve_fig(sub("\\.png$", ext, map[[nm]])), error = function(e) NULL)
-      if (!is.null(src)) file.copy(src, file.path(dest, sub("\\.png$", ext, nm)), overwrite = TRUE)
-    }
+    src <- file.path(fig_dir, map[[nm]])
+    if (!file.exists(src)) stop("Figure not found: ", src)
+    file.copy(src, file.path(dest, nm), overwrite = TRUE)
+    pdf <- sub("\\.png$", ".pdf", src)
+    if (file.exists(pdf)) file.copy(pdf, file.path(dest, sub("\\.png$", ".pdf", nm)), overwrite = TRUE)
     message("  ", nm, "  <-  ", map[[nm]])
   }
 }
 
 message("\n=== Main text figures ===")
 copy_set(c(
-  "fig1_processing_chain.png"       = "main_fig1_processing_chain.png",
+  "fig1_processing_chain.png"       = "processing_chain.png",
   "fig2_sigma_explained.png"        = "sigma_explained.png",
-  "fig3_precision_detection.png"    = "main_fig2_precision_detection.png",
-  "fig4_regression_vs_mdf.png"      = "main_fig3_regression_vs_mdf.png",
+  "fig3_precision_detection.png"    = "precision_detection.png",
+  "fig4_regression_vs_mdf.png"      = "regression_vs_mdf.png",
   "fig5_co2_tracer.png"             = "co2_validity_examples.png",
-  "fig6_r2_seasonal.png"            = "main_fig5_r2_seasonal.png",
-  "fig7_treatment_budget.png"       = "main_fig6_treatment_budget.png",
-  "fig8_transformation.png"         = "main_fig9_transformation.png",
-  "fig9_generality.png"             = "main_fig8_generality.png"
+  "fig6_r2_seasonal.png"            = "r2_seasonal.png",
+  "fig7_treatment_budget.png"       = "treatment_budget.png",
+  "fig8_transformation.png"         = "transformation.png",
+  "fig9_generality.png"             = "generality.png"
 ), main_dir)
 
 message("\n=== SI figures ===")

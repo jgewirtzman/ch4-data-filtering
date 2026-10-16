@@ -4,7 +4,7 @@
 #
 # Produces a 4x2 panel figure showing raw concentration timeseries for 4
 # example chamber closures, illustrating CO2 as a measurement validity
-# diagnostic (manuscript section 4.2).
+# diagnostic (the Validity section of Results; Fig. 5).
 #
 # Layout: 4 columns (measurements) x 2 rows (CO2 top, CH4 bottom)
 # =============================================================================
@@ -21,10 +21,10 @@ source("scripts/style.R")
 measurements <- data.frame(
   panel_label = c("(a) High signal", "(b) Below detection",
                   "(c) No signal", "(d) Ambiguous"),
-  UniqueID    = c("45509_414", "45468_880", "45580_439", "45610_414"),
-  date_str    = c("2024-08-05", "2024-06-25", "2024-10-15", "2024-11-14"),
-  comp_start  = c("11:28:30", "10:56:01", "13:02:55", "11:31:00"),
-  comp_end    = c("11:31:30", "10:59:01", "13:05:55", "11:34:00"),
+  UniqueID    = c("45509_414", "45489_153", "45580_439", "45610_414"),
+  date_str    = c("2024-08-05", "2024-07-16", "2024-10-15", "2024-11-14"),
+  comp_start  = c("11:28:30", "12:04:13", "13:02:55", "11:31:00"),
+  comp_end    = c("11:31:30", "12:07:13", "13:05:55", "11:34:00"),
   valid_co2   = c(TRUE, TRUE, FALSE, FALSE),
   stringsAsFactors = FALSE
 )
@@ -222,7 +222,6 @@ make_panel <- function(panel_idx, gas, y_col, y_lab, show_y_axis,
 
   panel_name <- measurements$panel_label[panel_idx]
   sub <- combined[combined$panel == panel_name, ]
-  is_valid <- measurements$valid_co2[panel_idx]
   bg_color <- bg_by_panel[panel_idx]
 
   # Get stats
@@ -252,12 +251,12 @@ make_panel <- function(panel_idx, gas, y_col, y_lab, show_y_axis,
     # Linear regression line
     geom_smooth(method = "lm", formula = y ~ x,
                 se = FALSE, color = INK, linewidth = 0.6) +
-    # R-squared annotation using plotmath
-    annotate("label", x = ann_x, y = ann_y, label.size = 0, fill = scales::alpha("white", 0.8),
+    # R-squared annotation (parsed expression; default thin label border, as published)
+    annotate("label", x = ann_x, y = ann_y, fill = scales::alpha("white", 0.8),
              label = deparse(r2_text), parse = TRUE,
              hjust = 0, vjust = 1, size = 2.5,
              color = INK) +
-    theme_paper(base_size = 8, grid = "none") +
+    theme_paper(base_size = 8) +
     theme(plot.margin = margin(2, 4, 2, 2))
 
   # Y-axis label
@@ -276,7 +275,7 @@ make_panel <- function(panel_idx, gas, y_col, y_lab, show_y_axis,
     p <- p + labs(x = NULL)
   }
 
-  # Panel title (column header) using plotmath expression
+  # Panel title (column header; markdown via ggtext)
   if (show_title) {
     p <- p + ggtitle(panel_exprs[[panel_idx]]) +
       theme(plot.title = ggtext::element_markdown(size = 8, hjust = 0))
@@ -290,7 +289,6 @@ panels <- list()
 
 for (i in seq_len(nrow(measurements))) {
   show_y <- (i == 1)
-  show_title <- TRUE
 
   # CO2 panel (top row)
   panels[[paste0("co2_", i)]] <- make_panel(
@@ -300,7 +298,7 @@ for (i in seq_len(nrow(measurements))) {
     y_lab       = expression(CO[2] ~ "(ppm)"),
     show_y_axis = show_y,
     show_x_axis = FALSE,
-    show_title  = show_title
+    show_title  = TRUE
   )
 
   # CH4 panel (bottom row)
@@ -329,10 +327,8 @@ full_fig <- (top_row / bottom_row) + plot_annotation(tag_levels = list(c("a", "b
 # 6. Save figure
 # =============================================================================
 
-fig_dir <- file.path(getwd(), "figures")
-if (!dir.exists(fig_dir)) {
-  dir.create(fig_dir, recursive = TRUE)
-}
+fig_dir <- Sys.getenv("FIG_DIR", "figures")   # as in 00_setup.R
+dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 
 out_png <- file.path(fig_dir, "co2_validity_examples.png")
 out_pdf <- file.path(fig_dir, "co2_validity_examples.pdf")

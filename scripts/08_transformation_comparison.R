@@ -3,7 +3,7 @@
 #
 # Demonstrates that log transforms silently drop negative values (true CH4
 # uptake), while arcsinh handles the full range including negative fluxes.
-# Uses three datasets: wetland soil, tree stem (YMF), tree canopy (HF).
+# Uses two datasets: the upland-wetland soils and the forest stems.
 #
 # Builds the plot data (transformed values, per-panel counts, arcsinh curve)
 # drawn in 19_main_figures.R, and runs Shapiro-Wilk normality tests and a
@@ -19,7 +19,7 @@ message("\n=== Loading data from 01 and 03 ===")
 load(file.path(output_dir, "01_loaded_data.RData"))
 load(file.path(output_dir, "03_mdf_results.RData"))
 
-# ── Load the three CH4 flux datasets ────────────────────────────────────────
+# ── Load the two CH4 flux datasets ──────────────────────────────────────────
 
 # 1. Soils along an upland-wetland gradient
 soil <- soil_flux %>%
@@ -31,12 +31,7 @@ tree_stem <- df %>%
   filter(is.finite(CH4_flux_nmolpm2ps)) %>%
   mutate(flux = CH4_flux_nmolpm2ps, dataset = "Forest stems")
 
-# 3. Harvard Forest canopy fluxes
-hf_flux <- hf_out %>%
-  filter(!is.na(CH4_best.flux)) %>%
-  mutate(flux = CH4_best.flux, dataset = "Tree canopy (HF)")
-
-# Combine (two datasets only; canopy dropped for clarity)
+# Combine
 all_data <- bind_rows(
   soil %>% select(flux, dataset),
   tree_stem %>% select(flux, dataset)
@@ -186,11 +181,11 @@ demo <- data.frame(
 
 # ── Normality tests ──────────────────────────────────────────────────────────
 
-cat("\n=== Shapiro-Wilk normality tests (wetland soil CH4) ===\n")
+cat("\n=== Shapiro-Wilk normality tests (soil CH4) ===\n")
 soil_flux_vals <- soil$flux
 
 # Raw
-sw_raw <- shapiro.test(sample(soil_flux_vals, min(5000, length(soil_flux_vals))))
+sw_raw <- shapiro.test(soil_flux_vals)
 cat(sprintf("Raw:     W = %.4f, p = %.2e\n", sw_raw$statistic, sw_raw$p.value))
 
 # Log (positive only)
@@ -217,7 +212,6 @@ all_data %>%
     raw_sd = sd(flux),
     asinh_var = var(asinh(flux)),
     asinh_sd = sd(asinh(flux)),
-    var_ratio_raw = var(flux) / min(var(flux)),  # within-group; cross-group below
     .groups = "drop"
   ) %>%
   print()

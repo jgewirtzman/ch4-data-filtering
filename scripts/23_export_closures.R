@@ -38,7 +38,7 @@ out <- df %>%
     CH4_model          = CH4_model,
     CH4_r2             = CH4_r2,
     CO2_flux           = CO2_flux_umolpm2ps,
-    sigma_closure_ppb  = allan_sd_CH4,
+    sigma_closure_ppb  = sc_CH4,
     sigma_campaign_ppb = sigma_camp_CH4,
     MDF_reference      = CH4_MDF_ref,
     MDF_datasheet      = CH4_MDF_manufacturer,

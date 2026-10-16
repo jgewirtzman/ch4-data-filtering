@@ -8,13 +8,15 @@
 #       large flux): rise from the first reading vs time
 #   (b) their first differences: the flux becomes a constant offset (slope x dt)
 #       plus noise; a curved closure leaves a trend in them
-#   (c) their second differences: centred on zero for any smooth trend; their MAD
-#       gives each closure's sigma_i = MAD / sqrt(6)
+#   (c) their second differences: centred on zero for any smooth trend; their
+#       scaled MAD gives each closure's sigma_i = 1.4826 MAD / sqrt(6) (sigma_closure)
 #   (d) sigma_i of every closure that day; the median is the campaign sigma
 #
 # Supplement
 #   worked_example.json (every number of the worked example in Sect. S1)
-#   worked_example_mdf -> figS01; sigma_alternatives -> figS02
+#   worked_example_mdf.png (Fig. S1; the Supplement includes figures/worked_example_mdf.png
+#     directly, 11_organize_figures.R also copies it to figS01)
+#   sigma_alternatives -> figures/SI/figS02_sigma_alternatives.png
 #
 # Loads: outputs/02_allan_deviation.RData, outputs/02b_manID.RData,
 #        outputs/02b_goflux_fluxes.RData,
@@ -22,14 +24,13 @@
 # ============================================================================
 
 source("scripts/00_setup.R")
-suppressPackageStartupMessages(library(patchwork))
 
 load(file.path(output_dir, "02_allan_deviation.RData"))
 load(file.path(output_dir, "02b_manID.RData"))          # manID: stem closure windows
 bk <- "analysis/precision_bakeoff"
 syn   <- readRDS(file.path(bk, "synthetic_results.rds"))
 
-th <- theme_paper(base_size = 8, grid = "xy")
+th <- theme_paper(base_size = 8)
 
 # ---------------------------------------------------------------------------
 # Example closure and its analyzer-day
@@ -48,7 +49,7 @@ lin <- win %>% group_by(UniqueID, analyzer, date_str) %>%
          slope = mapply(function(t, x) coef(lm(x ~ t))[2], t, x),
          resid_sd = mapply(function(t, x) sd(residuals(lm(x ~ t))), t, x),
          jump = vapply(x, function(v) max(abs(diff(v))), numeric(1))) %>%
-  filter(analyzer == "LGR1", n >= 170, n <= 240, resid_sd < 1.25 * sigma_i * sqrt(1), jump < 6 * sigma_i * sqrt(6) / sqrt(6) * 2)
+  filter(analyzer == "LGR1", n >= 170, n <= 240, resid_sd < 1.25 * sigma_i, jump < 12 * sigma_i)
 day_pick <- lin %>% group_by(date_str) %>%
   summarise(k = n(), lo = sum(between(abs(slope) * 180 / sigma_i, 1.2, 1.9)), hi = sum(abs(slope) * 180 / sigma_i > 25), .groups = "drop") %>%
   filter(lo > 0, hi > 0) %>% arrange(desc(k)) %>% slice(1)
@@ -60,7 +61,7 @@ ex_id <- ex_hi$UniqueID
 # Display the raw-record segments and per-closure sigma that 02 computed (the source of every
 # campaign sigma and MDF in the paper), not goFlux's windows: goFlux's window functions truncate
 # timestamps to whole seconds, which at ~0.995 s logging adds one duplicate second and one edge
-# reading per window (reported to the fork).
+# reading per window.
 fit_env <- new.env(); load(file.path(output_dir, "02b_goflux_fluxes.RData"), envir = fit_env)
 stem_fl <- setNames(fit_env$df$fl_UniqueID, fit_env$df$stem_id)
 day_raw <- local({ f <- lgr_catalog$folder[lgr_catalog$machine == "LGR1" & lgr_catalog$date_str == ex_day]
@@ -87,7 +88,6 @@ wr_day <- mad_days$wr_sd_CH4[mad_days$instrument == "LGR1" & mad_days$date_str =
 # large fluxes; their records, first differences (offset by the flux, and by any curvature)
 # and second differences (all centred on zero); then sigma_i of every closure that day and
 # their median, the campaign sigma.
-rob_sd <- function(d) 1.4826 * median(abs(d - median(d)))
 wk_day <- "2025-06-03"
 wk <- local({ e <- new.env(); load(file.path(output_dir, "02b_manID.RData"), envir = e); e$manID }) %>%
   filter(flag == 1, is.finite(CH4dry_ppb), analyzer == "LI-7810", date_str == wk_day) %>%
@@ -95,7 +95,7 @@ wk <- local({ e <- new.env(); load(file.path(output_dir, "02b_manID.RData"), env
   mutate(t = as.numeric(POSIX.time - POSIX.time[1], units = "secs")) %>% ungroup()
 wk_s <- wk %>% group_by(UniqueID) %>%
   summarise(slope = unname(coef(lm(CH4dry_ppb ~ t))[2]),
-            sigma_i = rob_sd(diff(CH4dry_ppb, differences = 2)) / sqrt(6), .groups = "drop")
+            sigma_i = sigma_closure(CH4dry_ppb, POSIX.time), .groups = "drop")
 wk_pick <- c("s1307" = "Near zero", "s1289" = "Moderate", "s1295" = "Large")
 pal3 <- setNames(RAMP_BLUE, wk_pick)
 ex3 <- wk %>% filter(UniqueID %in% names(wk_pick)) %>% mutate(cl = factor(wk_pick[UniqueID], levels = wk_pick)) %>%
@@ -103,7 +103,7 @@ ex3 <- wk %>% filter(UniqueID %in% names(wk_pick)) %>% mutate(cl = factor(wk_pic
 w1 <- ex3 %>% group_by(cl) %>% reframe(t = t[-1], d = diff(CH4dry_ppb))
 w2 <- ex3 %>% group_by(cl) %>% reframe(t = t[-(1:2)], d = diff(CH4dry_ppb, differences = 2))
 wk_sig <- median(wk_s$sigma_i)
-wk_whole <- rob_sd(unlist(lapply(split(wk$CH4dry_ppb, wk$UniqueID), diff))) / sqrt(2)   # first differences, all closures pooled
+wk_whole <- mad(unlist(lapply(split(wk$CH4dry_ppb, wk$UniqueID), diff))) / sqrt(2)   # first differences, all closures pooled
 message("Walkthrough day ", wk_day, ": campaign sigma ", round(wk_sig, 3), " ppb; pooled first-difference ", round(wk_whole, 3), " ppb; slopes ",
         paste(round(wk_s$slope[match(names(wk_pick), wk_s$UniqueID)], 3), collapse = ", "),
         "; sigma_i ", paste(round(wk_s$sigma_i[match(names(wk_pick), wk_s$UniqueID)], 3), collapse = ", "))
@@ -145,7 +145,6 @@ message("Saved fig_sigma_explained (example closure ", ex_id, ", ", ex_day, ")")
 # analyzer closures picked above (ex_lo, ex_hi), written to figures/worked_example.json
 # ---------------------------------------------------------------------------
 cb <- as.data.frame(fit_env$ch4_best)
-z95 <- qnorm(0.975)
 worked <- lapply(list(low = ex_lo, high = ex_hi), function(r) {
   id <- r$UniqueID; tt <- r$t[[1]]; xx <- r$x[[1]]
   f <- cb[cb$UniqueID == id, ][1, ]
@@ -157,7 +156,7 @@ worked <- lapply(list(low = ex_lo, high = ex_hi), function(r) {
        span = diff(range(tt)), t = f$det.t, rise = tail(xx, 1) - head(xx, 1), slope = r$slope,
        d1_median = median(dd1), d1_sd = sd(dd1), d1_mad_sigma = mad(dd1) / sqrt(2),
        d2_mad_raw = mad(dd2, constant = 1), sigma_i = r$sigma_i,
-       sigma_campaign = f$det.prec, z = z95, dC = z95 * f$det.prec, rate = z95 * f$det.prec / f$det.t,
+       sigma_campaign = f$det.prec, z = Z95, dC = Z95 * f$det.prec, rate = Z95 * f$det.prec / f$det.t,
        Vtot_L = g$Vtot, Area_cm2 = g$Area, Pcham_kPa = g$Pcham, Tcham_C = g$Tcham,
        flux_term = f$flux.term, MDF = f$det.MDF, flux = f$best.flux, model = f$model,
        ratio = f$best.flux / f$det.MDF, class = f$det.class,

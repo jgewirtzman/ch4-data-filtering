@@ -1,7 +1,7 @@
 # Raw 1 Hz analyzer records (not in this repository)
 
-The raw concentration records for the stem closures (~650 MB) are archived separately
-(Zenodo, DOI on publication). Place them here to recompute precision and fluxes from
+The raw concentration records for the stem closures (~650 MB) are archived separately,
+in the Harvard Forest Data Archive package of the stem study (DOI to follow). Place them here to recompute precision and fluxes from
 scratch with `02_allan_deviation.R` and `02b_goflux_fluxes.R`; everything downstream
 (03 onward) runs from the intermediate results in `outputs/`.
 

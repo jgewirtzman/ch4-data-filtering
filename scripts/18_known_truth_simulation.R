@@ -29,18 +29,12 @@ T_SEC     <- N_OBS        # window span + one logging interval
 SIGMAS    <- c("Noisier analyzer" = 3.6, "Precise analyzer" = 0.097)
 N_YEARS   <- 200          # replicate field years
 N_MONTH   <- 80           # closures per month
-temp_m    <- 11 + 14 * sin(2 * pi * ((1:12) - 4.5) / 12)   # ~ -3 C (Jan) to 25 C (Jul)
+temp_m    <- SIM_TEMP_M   # monthly air temperature, ~ -3 C (Jan) to 25 C (Jul); 00_setup.R
 
 tt  <- seq_len(N_OBS) - 1
 tc  <- tt - mean(tt); Sxx <- sum(tc^2)
 
-true_flux <- function(n, temp) {
-  med <- 0.12 * 2.5^((temp - 15) / 10)
-  f <- rlnorm(n, log(med), 1.3)
-  up <- runif(n) < 0.10
-  f[up] <- -abs(rnorm(sum(up), 0.02, 0.01))
-  f
-}
+true_flux <- function(n, temp) sim_true_flux(n, temp)   # 00_setup.R (shared with 22)
 
 # process a block of closures: rows = closures, cols = readings
 process <- function(f, sigma, noise = c("white", "red"), phi = 0.6) {

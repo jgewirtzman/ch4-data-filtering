@@ -27,7 +27,6 @@ stem <- df %>%
   mutate(
     dataset   = "HF stem",
     analyzer  = if_else(year == 2025, "Precise analyzer", "Noisier analyzer"),
-    t_stat    = NA_real_,
     p_val     = lm_p_CH4,
     ac1       = lm_ac1_CH4,
     detect_p  = p_val < 0.05,
@@ -35,7 +34,7 @@ stem <- df %>%
     flux      = CH4_flux_nmolpm2ps,
     co2_flux  = CO2_flux_umolpm2ps
   ) %>%
-  select(dataset, analyzer, UniqueID, flux, co2_flux, CH4_MDF_ref, t_stat, p_val, ac1,
+  select(dataset, analyzer, UniqueID, flux, co2_flux, CH4_MDF_ref, p_val, ac1,
          detect_p, detect_mdf, CH4_det_class)
 
 # ── Canopy datasets: goFlux linear-model p-value ───────────────────────────
@@ -45,7 +44,7 @@ canopy_tbl <- function(out, dataset) {
     transmute(
       dataset, analyzer = paste0("A-", sub("LGR", "", instrument)),
       UniqueID, flux = CH4_best.flux, co2_flux = CO2_best.flux, CH4_MDF_ref,
-      t_stat = NA_real_, p_val = CH4_LM.p.val, ac1 = NA_real_,
+      p_val = CH4_LM.p.val, ac1 = NA_real_,
       detect_p = CH4_LM.p.val < 0.05, detect_mdf = !CH4_below_MDF_ref,
       CH4_det_class)
 }

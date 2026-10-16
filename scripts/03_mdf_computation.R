@@ -5,17 +5,19 @@
 # only in the sigma source and the multiplier k:
 #   1. Datasheet:    sigma = manufacturer 1-s spec, k = 1        (goFlux default;
 #                    the form of Christiansen et al. 2015)
-#   2. Campaign:     sigma = MAD(first differences)/sqrt(2) over the whole record
-#                    of an analyzer x field day, k = z (90/95/99 %; Wassmann et
-#                    al. 2018 form). z = 1.96 (95 %) is the REFERENCE method
-#                    (guidelines paper / goFlux fork; Parkin et al. 2012 corroborate).
+#   2. Campaign:     sigma = median, over the closures of an analyzer x field day,
+#                    of each closure's second-difference precision (computed in 02),
+#                    k = z (90/95/99 %; Wassmann et al. 2018 form). z = 1.96 (95 %) is
+#                    the REFERENCE method (the convention of Gewirtzman et al., in
+#                    prep., and the goFlux fork; Parkin et al. 2012 corroborate).
 #   3. Per-closure x3t: sigma = per-closure Allan deviation, k = 3 * t_crit(df).
 #                    Kept as a conservative comparison. Column suffix "chr" is
 #                    historical: this is NOT Christiansen et al. (2015), whose
 #                    3*SD*t99 is a GC quantification limit, not a per-closure MDF.
 #
-# Loads: outputs/01_loaded_data.RData, outputs/02_allan_deviation.RData
-# Saves: outputs/03_mdf_results.RData
+# Loads: outputs/01_loaded_data.RData, outputs/02_allan_deviation.RData,
+#        outputs/02b_goflux_fluxes.RData
+# Saves: outputs/03_mdf_results.RData, outputs/precision_comparison.csv
 # ============================================================================
 
 source("scripts/00_setup.R")
@@ -35,7 +37,7 @@ if (file.exists(f02b)) {
   df <- df %>% filter(flux_src == "goFlux")
   message("Kept the ", nrow(df), " stem closures with an archived raw record")
 } else {
-  message("outputs/02b_goflux_fluxes.RData not found: using the legacy stem fluxes")
+  stop("outputs/02b_goflux_fluxes.RData not found: run scripts/02b_goflux_fluxes.R first")
 }
 
 # Load YMF imp object if saved separately
@@ -59,15 +61,16 @@ df <- df %>%
     # to 300 s if the raw record was not found
     t_sec_est = if_else(!is.na(t_sec), as.numeric(t_sec), 300),
 
-    # Empirical noise floor in flux units (Allan SD / t * flux_term)
-    CH4_noise_floor = ifelse(!is.na(allan_sd_CH4) & !is.na(flux_term),
-                              allan_sd_CH4 / t_sec_est * flux_term,
+    # Noise floor in flux units: the closure's own second-difference precision
+    # (sigma_i, the estimator used throughout) / t * flux_term
+    CH4_noise_floor = ifelse(!is.na(sc_CH4) & !is.na(flux_term),
+                              sc_CH4 / t_sec_est * flux_term,
                               NA_real_),
-    CO2_noise_floor = ifelse(!is.na(allan_sd_CO2) & !is.na(flux_term),
-                              allan_sd_CO2 / t_sec_est * flux_term,
+    CO2_noise_floor = ifelse(!is.na(sc_CO2) & !is.na(flux_term),
+                              sc_CO2 / t_sec_est * flux_term,
                               NA_real_),
 
-    # Empirical SNR (Allan deviation based)
+    # Empirical SNR against that noise floor (second-difference sigma)
     CH4_snr_allan = ifelse(!is.na(CH4_noise_floor) & CH4_noise_floor > 0,
                             abs(CH4_flux_nmolpm2ps) / CH4_noise_floor,
                             NA_real_),
@@ -190,119 +193,7 @@ print(table(df$inst_label <- ifelse(df$year == 2025, "Precise analyzer", "Noisie
             df$CH4_det_class, useNA = "ifany"))
 
 # ============================================================================
-# PART 2: DEFINE ALL STEM QUALITY FILTERS
-# ============================================================================
-
-r2_sym <- "\u00B2"
-
-quality_filters <- list()
-quality_filters[["No filter"]] <- function(d) rep(FALSE, nrow(d))
-
-# Manufacturer MDF (instrument-specific)
-quality_filters[["Manufacturer MDF"]] <- function(d) {
-  ifelse(!is.na(d$CH4_below_MDF_manuf), d$CH4_below_MDF_manuf, FALSE)
-}
-
-# CO2-based filters
-quality_filters[["CO2 flux > 0"]]                    <- function(d) d$CO2_flux_umolpm2ps <= 0
-quality_filters[["CO2 SNR (SE) > 2"]]                <- function(d) d$CO2_snr_se <= 2
-quality_filters[[paste0("CO2 R", r2_sym, " > 0.7")]] <- function(d) d$CO2_r2 <= 0.7
-quality_filters[[paste0("CO2 R", r2_sym, " > 0.8")]] <- function(d) d$CO2_r2 <= 0.8
-
-# CH4 SE-based SNR
-quality_filters[["CH4 SNR (SE) > 2"]] <- function(d) d$CH4_snr_se <= 2
-quality_filters[["CH4 SNR (SE) > 3"]] <- function(d) d$CH4_snr_se <= 3
-
-# CH4 Allan deviation SNR
-# For measurements without Allan deviation, they pass by default (not excluded)
-quality_filters[["CH4 SNR (Allan) > 2"]] <- function(d) {
-  ifelse(!is.na(d$CH4_snr_allan), d$CH4_snr_allan <= 2, FALSE)
-}
-quality_filters[["CH4 SNR (Allan) > 3"]] <- function(d) {
-  ifelse(!is.na(d$CH4_snr_allan), d$CH4_snr_allan <= 3, FALSE)
-}
-
-# Campaign-sigma (z) MDF thresholds and the per-closure x3t variant; labels
-# from MDF_LABELS in 00_setup.R
-for (m in c("wass90", "wass95", "wass99", "chr90", "chr95", "chr99")) {
-  local({
-    col <- paste0("CH4_below_MDF_", m)
-    quality_filters[[MDF_LABELS[[m]]]] <<- function(d) ifelse(!is.na(d[[col]]), d[[col]], FALSE)
-  })
-}
-
-# CH4 R^2 thresholds
-quality_filters[[paste0("CH4 R", r2_sym, " > 0.5")]] <- function(d) d$CH4_r2 <= 0.5
-quality_filters[[paste0("CH4 R", r2_sym, " > 0.7")]] <- function(d) d$CH4_r2 <= 0.7
-quality_filters[[paste0("CH4 R", r2_sym, " > 0.9")]] <- function(d) d$CH4_r2 <= 0.9
-
-filter_names <- names(quality_filters)
-
-# ============================================================================
-# SORT FILTERS BY STRINGENCY
-# ============================================================================
-
-n_retained <- sapply(filter_names, function(fn) {
-  fails <- quality_filters[[fn]](df)
-  sum(!fails)
-})
-filter_order <- names(sort(n_retained, decreasing = TRUE))
-
-# ============================================================================
-# BUILD LONG DATA FOR STEM RIDGELINE
-# ============================================================================
-
-# Count how many measurements have Allan deviation for annotation
-n_with_allan <- sum(!is.na(df$allan_sd_CH4))
-
-pass_labels <- sapply(filter_order, function(fn) {
-  fails <- quality_filters[[fn]](df)
-  n_pass <- sum(!fails)
-  pct <- round(100 * n_pass / n_total, 1)
-  n_neg <- sum(df$CH4_flux_nmolpm2ps[!fails] < 0)
-  pct_neg <- round(100 * n_neg / n_pass, 1)
-  paste0(fn, "\n(", n_pass, "/", n_total, ", ", pct, "%",
-         " | ", pct_neg, "% neg)")
-})
-
-rows_list <- lapply(seq_along(filter_order), function(i) {
-  fn <- filter_order[i]
-  fails <- quality_filters[[fn]](df)
-  data.frame(
-    filter   = pass_labels[i],
-    CH4_flux = df$CH4_flux_nmolpm2ps,
-    passes   = !fails,
-    stringsAsFactors = FALSE
-  )
-})
-
-ridge_df <- do.call(rbind, rows_list)
-ridge_df$filter <- factor(ridge_df$filter, levels = rev(pass_labels))
-
-# Per-filter summary stats
-filter_stats <- ridge_df %>%
-  filter(passes) %>%
-  group_by(filter) %>%
-  summarise(
-    mean_flux   = mean(CH4_flux, na.rm = TRUE),
-    median_flux = median(CH4_flux, na.rm = TRUE),
-    n_neg       = sum(CH4_flux < 0),
-    n_total     = n(),
-    pct_neg     = round(100 * n_neg / n_total, 1),
-    .groups     = "drop"
-  )
-
-cat("\n=== Filter summary (CH4 fluxes) ===\n")
-print(as.data.frame(filter_stats), row.names = FALSE)
-
-# Retention % for fill color
-ridge_df <- ridge_df %>%
-  group_by(filter) %>%
-  mutate(pct_retained = 100 * sum(passes) / n()) %>%
-  ungroup()
-
-# ============================================================================
-# PART 3: CANOPY FLUX — COMPUTE THREE MDF APPROACHES
+# PART 2: CANOPY FLUX — COMPUTE THREE MDF APPROACHES
 # ============================================================================
 
 message("\n=== Computing canopy MDF thresholds (three approaches) ===")
@@ -311,7 +202,7 @@ message("\n=== Computing canopy MDF thresholds (three approaches) ===")
 prec_co2 <- PREC_CO2_LGR  # 0.35 ppm
 prec_ch4 <- PREC_CH4_LGR  # 0.9 ppb
 
-# Wassmann multipliers (z-scores for normal distribution)
+# Campaign-sigma multipliers (z-scores of the normal distribution; Wassmann et al. 2018 form)
 z_mult <- c("99" = qnorm(0.995), "95" = qnorm(0.975), "90" = qnorm(0.95))
 
 compute_mdf_all <- function(compiled, allan_df, rw_df, mad_df, tsec_df) {
@@ -330,7 +221,8 @@ compute_mdf_all <- function(compiled, allan_df, rw_df, mad_df, tsec_df) {
                     rw_df[, c("instrument", "flat_sd_CO2", "flat_sd_CH4")],
                     by = "instrument", all.x = TRUE)
 
-  # Merge campaign MAD sigma per instrument record (enters the z-form MDF)
+  # Merge the campaign sigma per instrument record (closure median of the
+  # second-difference sigma; enters the z-form MDF)
   compiled <- merge(compiled,
                     mad_df[, c("instrument", "mad_sd_CO2", "mad_sd_CH4")],
                     by = "instrument", all.x = TRUE)
@@ -347,7 +239,7 @@ compute_mdf_all <- function(compiled, allan_df, rw_df, mad_df, tsec_df) {
       CO2_MDF_goflux = prec_co2 / t_sec * CO2_flux.term,
       CH4_MDF_goflux = prec_ch4 / t_sec * CH4_flux.term,
 
-      # --- Approach 2: campaign sigma (z * MAD sigma) at 99/95/90 % ---
+      # --- Approach 2: campaign sigma (z * campaign sigma) at 99/95/90 % ---
       CO2_MDF_wass99 = (z_mult["99"] * mad_sd_CO2) / t_sec * CO2_flux.term,
       CH4_MDF_wass99 = (z_mult["99"] * mad_sd_CH4) / t_sec * CH4_flux.term,
       CO2_MDF_wass95 = (z_mult["95"] * mad_sd_CO2) / t_sec * CO2_flux.term,
@@ -591,9 +483,7 @@ print(precision_summary)
 
 message("\n=== Saving MDF results ===")
 
-save(df, n_total, n_with_allan,
-     quality_filters, filter_names, filter_order, pass_labels,
-     ridge_df, filter_stats,
+save(df, n_total,
      global_sd_ch4_lgr, global_sd_ch4_7810,
      hf_out, ymf_out,
      mad_results, mad_days, mad_inst_median, tsec_hf, tsec_ymf,

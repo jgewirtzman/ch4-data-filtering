@@ -129,7 +129,8 @@ median_flux_term <- median(df$flux_term, na.rm = TRUE)
 message("  Median flux_term: ", round(median_flux_term, 3))
 
 # Precision values to compare: datasheet (1 s) vs the campaign sigma that
-# enters the reference MDF (median of the daily MAD sigmas per analyzer)
+# enters the reference MDF (median over field days of the closure-median
+# second-difference sigma, per analyzer)
 precision_values <- data.frame(
   label = c(
     paste0("Noisier analyzer datasheet (", PREC_CH4_LGR, " ppb)"),
@@ -162,7 +163,7 @@ mdf_curve_df <- do.call(rbind, mdf_curves)
 
 # Color by instrument, linetype by manufacturer vs empirical
 mdf_curve_df$source <- ifelse(grepl("datasheet", mdf_curve_df$label),
-                               "Datasheet (1 s spec)", "Campaign \u03c3 (MAD)")
+                               "Datasheet (1 s spec)", "Campaign \u03c3")
 
 p_mdf_duration <- ggplot(mdf_curve_df,
                           aes(x = t_sec, y = mdf, color = instrument,
@@ -176,8 +177,8 @@ p_mdf_duration <- ggplot(mdf_curve_df,
     name = "Analyzer"
   ) +
   scale_linetype_manual(
-    values = c("Datasheet (1 s spec)" = "dashed", "Campaign \u03c3 (MAD)" = "solid"),
-    labels = c("Datasheet (1 s spec)" = "Datasheet \u03c3", "Campaign \u03c3 (MAD)" = "Measured \u03c3"),
+    values = c("Datasheet (1 s spec)" = "dashed", "Campaign \u03c3" = "solid"),
+    labels = c("Datasheet (1 s spec)" = "Datasheet \u03c3", "Campaign \u03c3" = "Measured \u03c3"),
     name = NULL
   ) +
   scale_y_log10(
@@ -187,20 +188,14 @@ p_mdf_duration <- ggplot(mdf_curve_df,
                      labels = function(x) paste0(x / 60, " min")) +
   labs(
     x = "Measurement duration",
-    y = expression(MDF~(nmol~m^{-2}~s^{-1})),
-    title = expression(Minimal~detectable~CH[4]~flux~vs.~measurement~duration),
-    subtitle = paste0("Stem collar geometry (flux term = ",
-                      round(median_flux_term, 2),
-                      "). MDF = 1.96 \u03c3 / t \u00D7 flux term.")
+    y = expression(MDF~(nmol~m^{-2}~s^{-1}))
   ) +
   theme_paper(base_size = 9) +
   theme(
     legend.position = "inside", legend.position.inside = c(0.98, 0.98), legend.justification = c(1, 1),
     legend.background = element_rect(fill = scales::alpha("white", 0.85), colour = NA),
     legend.box = "vertical",
-    legend.key.width = unit(28, "pt"),
-    plot.title = element_text(size = 13, face = "bold"),
-    plot.subtitle = element_text(size = 10, color = "grey40")
+    legend.key.width = unit(28, "pt")
   ) +
   guides(color = guide_legend(order = 1),
          linetype = guide_legend(order = 2))

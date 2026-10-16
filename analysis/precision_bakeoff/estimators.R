@@ -5,10 +5,10 @@
 mad_s <- function(d) stats::mad(d[is.finite(d)], constant = 1.4826)
 
 # ---- sigma estimators -------------------------------------------------------
-sig_rec_d1 <- function(r) mad_s(diff(r$x)) / sqrt(2)                       # E1 whole record, 1st diffs (current)
+sig_rec_d1 <- function(r) mad_s(diff(r$x)) / sqrt(2)                       # E1 whole record, 1st diffs (earlier campaign sigma)
 sig_rec_d2 <- function(r) mad_s(diff(r$x, differences = 2)) / sqrt(6)      # E2 whole record, 2nd diffs
 by_win <- function(r, f) lapply(split(r$x[r$win], r$id[r$win]), f)
-sig_win_cent <- function(r) mad_s(unlist(by_win(r, function(v) { d <- diff(v); d - stats::median(d) }))) / sqrt(2)  # E3 issue #1 fix
+sig_win_cent <- function(r) mad_s(unlist(by_win(r, function(v) { d <- diff(v); d - stats::median(d) }))) / sqrt(2)  # E3 per closure, centred 1st diffs
 sig_win_d2   <- function(r) mad_s(unlist(by_win(r, function(v) diff(v, differences = 2)))) / sqrt(6)               # E4 pooled 2nd diffs
 sig_i_d2     <- function(r) unlist(by_win(r, function(v) mad_s(diff(v, differences = 2)) / sqrt(6)))               # per closure
 sig_med_d2   <- function(r) stats::median(sig_i_d2(r), na.rm = TRUE)                                               # E5 median of closures
@@ -26,13 +26,6 @@ drift_shoulder <- function(r) stats::median(shoulder_slopes(r), na.rm = TRUE)
 # D2: day-scale baseline drift: regress the median of each ambient gap on time
 drift_baseline <- function(r) { a <- r[is.na(r$id) & !is.na(r$gap), ]; g <- stats::aggregate(cbind(x, t) ~ gap, a, stats::median)
   if (nrow(g) < 3) return(NA_real_); unname(stats::coef(stats::lm(x ~ t, data = g))[2]) }
-# Per-closure drift-vs-flux discrimination: window slope minus mean shoulder slope, in units of
-# the slope's own noise (closure is "drift-like" if the window slope matches the shoulders)
-closure_vs_shoulder <- function(r) {
-  w <- r[r$win, ]; s <- r[!is.na(r$shoulder), ]
-  ws <- sapply(split(w, w$id), function(z) unname(stats::coef(stats::lm(x ~ t, data = z))[2]))
-  ss <- sapply(split(s, s$sid), function(z) if (nrow(z) >= 10) unname(stats::coef(stats::lm(x ~ t, data = z))[2]) else NA_real_)
-  data.frame(id = names(ws), window_slope = ws, shoulder_slope = ss[names(ws)]) }
 
 # ---- diagnostics -------------------------------------------------------------
 diag_white <- function(r) stats::median(unlist(by_win(r, function(v) { d <- diff(v, differences = 2); if (length(d) < 6) return(NULL)

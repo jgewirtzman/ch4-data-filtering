@@ -9,11 +9,10 @@
 #      — uses noise_floor² as within-measurement variance (vi)
 #      — decomposes total variance into measurement (vi) + biological (τ²)
 #
-# Key findings from SE verification (script 12):
-#   - GLA131 model-fit SE is unreliable (77× too small vs first principles)
-#   - LI-7810 model-fit SE matches first principles (ratio = 1.14)
-#   - Allan noise floor is the trustworthy per-measurement uncertainty metric
-#   → Use noise_floor² (not SE²) as within-measurement variance in approach 3
+# Within-measurement variance in approach 3 is noise_floor² (from 03: the
+# closure's second-difference sigma / t × flux term), not the model-fit SE²,
+# because the SE of the noisier analyzer's fits is not reliable (autocorrelated
+# 1 Hz residuals; see 16_pvalue_vs_mdf.R).
 #
 # Loads: outputs/03_mdf_results.RData
 # Saves: outputs/13_scaling_uncertainty.RData,
@@ -22,12 +21,7 @@
 
 source("scripts/00_setup.R")
 
-# metafor for random-effects meta-analysis
-if (!requireNamespace("metafor", quietly = TRUE)) {
-  message("Installing metafor package...")
-  install.packages("metafor", repos = "https://cloud.r-project.org")
-}
-library(metafor)
+library(metafor)   # random-effects meta-analysis
 
 message("\n=== Loading data ===")
 load(file.path(output_dir, "03_mdf_results.RData"))

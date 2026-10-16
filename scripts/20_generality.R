@@ -5,18 +5,24 @@
 #   stems, noisier analyzer (CH4) and precise analyzer (CH4)   — 03 output
 #   soils along an upland-wetland gradient (CH4): upland + intermediate positions,
 #     and wetland positions; sigma and MDF computed here from the raw closure windows
-#     (tree-methanogens) with the paper's convention
+#     (Gewirtzman (2026), doi:10.5281/zenodo.18779715) with the paper's convention
 #   agricultural soil (CH4 and N2O, precise analyzers)           — data/agsoil (de-identified)
 # Metrics per dataset: realized sigma vs datasheet; % below the reference and the
 # datasheet MDF; % removed by R2 <= 0.5; change in the magnitude of the mean and the
 # median when below-MDF or low-R2 closures are removed; % of values <= 0 (lost to log).
 #
+# Loads:  outputs/03_mdf_results.RData, outputs/10_seasonal_confounding.RData,
+#         data/external/lgr_manual_identification_results_soil.csv (or SOIL_WINDOWS),
+#         data/soil/CH4_best_flux_lgr_results_soil.csv, data/agsoil/
 # Writes: outputs/20_generality.RData, outputs/20_generality_table.csv
 # ============================================================================
 
 source("scripts/00_setup.R")
 suppressPackageStartupMessages(library(data.table))
 
+# Second-difference sigma of one closure, over consecutive readings (logging gaps not
+# split, unlike sigma_closure() in 00_setup.R; switching changes the wetland row of
+# Table S4 slightly, so the published values keep this form)
 sig2 <- function(x) { d2 <- diff(x, differences = 2); 1.4826 * median(abs(d2 - median(d2))) / sqrt(6) }
 mag_change <- function(v, keep) {           # % change in |statistic| when only `keep` is retained
   c(mean = 100 * (abs(mean(v[keep])) / abs(mean(v)) - 1),
@@ -48,7 +54,7 @@ for (a in c("Noisier analyzer", "Precise analyzer")) {
 
 # ── Soils along an upland–wetland gradient ───────────────────────────────────
 # Raw soil closure windows (75 MB) from the published soil-gradient dataset
-# (Gewirtzman et al. 2025, doi:10.5281/zenodo.18779715). Place the file in data/external/,
+# (Gewirtzman (2026), doi:10.5281/zenodo.18779715). Place the file in data/external/,
 # or set SOIL_WINDOWS to its path.
 win_file <- Sys.getenv("SOIL_WINDOWS", file.path("data", "external", "lgr_manual_identification_results_soil.csv"))
 if (!file.exists(win_file)) stop("Soil closure windows not found; see README (data/external).")
@@ -63,8 +69,7 @@ gf <- read.csv(file.path(data_dir, "soil", "CH4_best_flux_lgr_results_soil.csv")
 cl <- merge(cl, gf[, c("UniqueID", "flux.term", "best.flux")], by = "UniqueID")
 cl[, `:=`(mdf_ref = Z95 * sigma_c / t * flux.term, mdf_ds = PREC_CH4_LGR / t * flux.term)]
 soil <- local({ e <- new.env(); load(file.path(output_dir, "10_seasonal_confounding.RData"), envir = e); e$soil })
-key <- intersect(c("unique_id", "UniqueID"), names(soil))[1]
-soil$UniqueID <- soil[[key]]
+soil$UniqueID <- soil$unique_id
 sm <- merge(as.data.frame(cl), soil[, c("UniqueID", "flux", "r2", "landscape_position")], by = "UniqueID")
 message("Soil closures with sigma and MDF: ", nrow(sm), " of ", nrow(soil))
 for (pos in list(c("U", "I"), c("WD", "WS"))) {
@@ -78,7 +83,7 @@ soil_sigma <- sm
 # ── Agricultural soil (de-identified) ────────────────────────────────────────
 ag <- read.csv(file.path(data_dir, "agsoil", "agsoil_closures_deidentified.csv"))
 ag <- ag[!duplicated(ag[, c("CH4_flux", "N2O_flux", "CO2_flux")]), ]
-spec_ag <- c(CH4 = 0.6, N2O = 0.4)          # LI-7810 CH4, LI-7820 N2O, 1 s
+spec_ag <- c(CH4 = PREC_CH4_7810, N2O = PREC_N2O_7820)   # LI-7810 CH4, LI-7820 N2O, 1 s
 for (g in c("CH4", "N2O")) {
   f <- ag[[paste0(g, "_flux")]]; s <- ag[[paste0(g, "_sigma")]]; m <- ag[[paste0(g, "_MDF")]]
   ds <- m * spec_ag[[g]] / (Z95 * s)          # datasheet MDF, k = 1: same t and flux term

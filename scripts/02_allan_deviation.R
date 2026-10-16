@@ -1,10 +1,12 @@
 # ============================================================================
-# 02_allan_deviation.R — Compute Allan deviation for all flux datasets
+# 02_allan_deviation.R — Per-closure precision for all flux datasets
 #
-# Computes per-measurement instrument noise (Allan deviation at one logging
-# interval) AND the campaign precision (MAD of first differences over the whole
-# continuous record per analyzer and field day; the sigma that enters the
-# reference MDF) from:
+# Computes per-closure instrument noise: the second-difference precision
+# sigma_i (sc_*; sigma_closure() in 00_setup.R) and, for the x3t comparison, the
+# Allan deviation at one logging interval (allan_sd_*); and the campaign
+# precision (median of sigma_i over the closures of an analyzer x field day;
+# the sigma that enters the reference MDF; stored as mad_sd_* for historical
+# reasons, with the whole-record first-difference MAD kept as wr_sd_*) from:
 #   1. HF canopy manID timeseries (LGR1/2/3)
 #   2. YMF canopy manID timeseries
 #   3. 2025 LI-7810 stem raw 1-Hz CSVs
@@ -15,7 +17,7 @@
 # interval of every record (LGR2 = 10 s, YMF = 5 s, others 1 s) and the closure
 # length in seconds (t_sec; NOT nb.obs).
 #
-# Merges Allan, campaign-sigma and t_sec results into stem flux data frame (df).
+# Merges sigma_i, Allan deviation, campaign sigma and t_sec into the stem flux data frame (df).
 # Saves all results to outputs/.
 # ============================================================================
 
@@ -52,7 +54,7 @@ message("  CH4 Allan SD range: ", round(min(allan_ymf$allan_sd_CH4, na.rm = TRUE
         " - ", round(max(allan_ymf$allan_sd_CH4, na.rm = TRUE), 4), " ppb")
 
 # ============================================================================
-# PART 1b: CANOPY — CLOSURE LENGTH (s), LOGGING INTERVAL, CAMPAIGN MAD SIGMA
+# PART 1b: CANOPY — CLOSURE LENGTH (s), LOGGING INTERVAL, CAMPAIGN SIGMA
 # ============================================================================
 
 message("\n=== Closure length and campaign precision (canopy) ===")
@@ -156,7 +158,8 @@ fl3_std <- fl3 %>%
 # --- Field log 4: Sept-Dec 2024 Excel files ---
 xlsx_dir <- file.path(field_data_dir, "Sept2024_onwards")
 fl4_std <- data.frame()
-if (requireNamespace("readxl", quietly = TRUE) && dir.exists(xlsx_dir)) {
+if (!requireNamespace("readxl", quietly = TRUE)) stop("package 'readxl' is required to read the Sept-Dec 2024 field logs")
+if (dir.exists(xlsx_dir)) {
   xlsx_files <- list.files(xlsx_dir, pattern = "[.]xlsx$", full.names = TRUE)
   xlsx_files <- xlsx_files[!grepl("Template", xlsx_files)]
   xlsx_files <- xlsx_files[!grepl("2025", xlsx_files)]  # skip 2025 (LI-7810)
@@ -191,7 +194,7 @@ if (requireNamespace("readxl", quietly = TRUE) && dir.exists(xlsx_dir)) {
 
   message("Excel field logs (Sept-Dec 2024): ", nrow(fl4_std), " entries")
 } else {
-  message("readxl not available or xlsx dir missing; skipping Excel field logs")
+  stop("field-log folder not found: ", xlsx_dir)
 }
 
 # Combine all field logs
@@ -292,7 +295,8 @@ message("\n=== Allan deviation: 2025 LI-7810 ===")
 # Closures are the REMARK runs of the instrument's own continuous record (the
 # operator types the tree tag at closure, clears it at opening): the whole
 # closure, not the 60-s best-CO2-R2 sub-window the legacy tables archived. The
-# campaign sigma is the MAD over the entire day's record, as for the LGR days.
+# whole-day first-difference MAD computed here is replaced below by the closure
+# median of sigma_i (the campaign sigma), as for the LGR days.
 raw_dir_7810   <- file.path(data_dir, "stem_raw", "7810", "raw-7810-tree_flux_data")
 raw_files_7810 <- list.files(raw_dir_7810, pattern = "\\.data$", full.names = TRUE)
 message("Found ", length(raw_files_7810), " raw LI-7810 daily .data files")
@@ -463,7 +467,7 @@ for (i in seq_len(nrow(unique_day_machine))) {
   day_data <- day_data[!duplicated(day_data$POSIX.time), ]
 
   # Logging interval and campaign sigma for this analyzer x field day
-  # (LGR2 logs every 10 s; its Allan/MAD sigma is at that interval)
+  # (LGR2 logs every 10 s; its sigma is at that interval)
   co2_runs <- precision_mad_runs(day_data$CO2dry_ppm, day_data$POSIX.time)
   ch4_runs <- precision_mad_runs(day_data$CH4dry_ppb, day_data$POSIX.time)
   mad_lgr_days[[length(mad_lgr_days) + 1]] <- data.frame(
@@ -563,7 +567,7 @@ df <- df %>%
 df$seg_key_7810 <- paste(df$Tree, df$date, df$k_day, sep = "_")
 
 allan_7810_unique <- allan_df_7810 %>%
-  select(seg_key, allan_sd_CO2, allan_sd_CH4, n_pts, t_sec, dt_s, instrument,
+  select(seg_key, allan_sd_CO2, allan_sd_CH4, sc_CO2, sc_CH4, n_pts, t_sec, dt_s, instrument,
          lm_p_CH4, lm_ac1_CH4)
 
 df <- merge(df, allan_7810_unique,
@@ -571,8 +575,8 @@ df <- merge(df, allan_7810_unique,
             all.x = TRUE, suffixes = c("", "_7810"))
 # Fallback: a row whose k-th REMARK run is missing (a run too short to keep, or
 # a label typo) takes the one unused run of that tag on that day, if unique
-fb_cols <- c("allan_sd_CO2", "allan_sd_CH4", "n_pts", "t_sec", "dt_s", "instrument",
-             "lm_p_CH4", "lm_ac1_CH4")
+fb_cols <- c("allan_sd_CO2", "allan_sd_CH4", "sc_CO2", "sc_CH4", "n_pts", "t_sec", "dt_s",
+             "instrument", "lm_p_CH4", "lm_ac1_CH4")
 n_fb <- 0
 for (idx in which(df$year == 2025 & is.na(df$t_sec))) {
   cand <- allan_df_7810[allan_df_7810$REMARK == as.character(df$Tree[idx]) &
@@ -591,7 +595,7 @@ if (nrow(allan_df_lgr) > 0) {
     group_by(UniqueID) %>%
     slice(1) %>%
     ungroup() %>%
-    select(UniqueID, allan_sd_CO2, allan_sd_CH4, n_pts, t_sec, dt_s, instrument,
+    select(UniqueID, allan_sd_CO2, allan_sd_CH4, sc_CO2, sc_CH4, n_pts, t_sec, dt_s, instrument,
            lm_p_CH4, lm_ac1_CH4)
 
   df <- merge(df, allan_lgr_unique,
@@ -604,6 +608,8 @@ if (nrow(allan_df_lgr) > 0) {
       fl_UniqueID  = if_else(!is.na(allan_sd_CH4_lgr), UniqueID, NA_character_),
       allan_sd_CO2 = if_else(is.na(allan_sd_CO2), allan_sd_CO2_lgr, allan_sd_CO2),
       allan_sd_CH4 = if_else(is.na(allan_sd_CH4), allan_sd_CH4_lgr, allan_sd_CH4),
+      sc_CO2       = if_else(is.na(sc_CO2), sc_CO2_lgr, sc_CO2),
+      sc_CH4       = if_else(is.na(sc_CH4), sc_CH4_lgr, sc_CH4),
       n_pts        = if_else(is.na(n_pts), n_pts_lgr, n_pts),
       t_sec        = if_else(is.na(t_sec), t_sec_lgr, t_sec),
       dt_s         = if_else(is.na(dt_s), dt_s_lgr, dt_s),
@@ -662,6 +668,8 @@ if (length(unmatched_idx) > 0 && nrow(field_logs_lgr) > 0 && nrow(allan_df_lgr) 
 
     df$allan_sd_CO2[idx] <- allan_row$allan_sd_CO2[1]
     df$allan_sd_CH4[idx] <- allan_row$allan_sd_CH4[1]
+    df$sc_CO2[idx]       <- allan_row$sc_CO2[1]
+    df$sc_CH4[idx]       <- allan_row$sc_CH4[1]
     df$n_pts[idx]        <- allan_row$n_pts[1]
     df$t_sec[idx]        <- allan_row$t_sec[1]
     df$dt_s[idx]         <- allan_row$dt_s[1]
@@ -684,10 +692,9 @@ message("  2023-24 LGR:  ", sum(!is.na(df$allan_sd_CH4) & df$year < 2025),
 message("  Total:        ", sum(!is.na(df$allan_sd_CH4)), " / ", n_total)
 
 # --- Campaign sigma per stem measurement ---
-# LI-7810 rows: that day's MAD; LGR rows: that analyzer x day's MAD. Rows whose
-# raw record was not found get the analyzer-wide median of the daily MADs
-# (machine from the field log when known, else the pooled LGR median).
-# Reference campaign sigma = median of the day's per-closure second-difference sigma.
+# Reference campaign sigma = median of the analyzer x day's per-closure second-difference
+# sigma (swap_sigma below). Rows whose raw record was not found get the analyzer-wide
+# median over days (machine from the field log when known, else the pooled LGR median).
 # The whole-record first-difference MAD computed above is kept as wr_sd_* (comparison).
 closure_median_days <- bind_rows(
   allan_df_7810 %>% transmute(instrument, date_str = DATE, sc_CH4, sc_CO2),
