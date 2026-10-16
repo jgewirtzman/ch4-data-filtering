@@ -59,6 +59,9 @@ source("scripts/21_logging_interval.R")
 # 22: What each transformation does to inference (Fig. 8c, Fig. S6)
 source("scripts/22_transform_inference.R")
 
+# 23: Closure-level results table (results/stem_closures_processed.csv)
+source("scripts/23_export_closures.R")
+
 # 19: Assemble main-text figures (paper style, scripts/style.R)
 source("scripts/19_main_figures.R")
 

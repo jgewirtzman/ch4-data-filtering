@@ -7,6 +7,7 @@ authors:
     given-names: Jonathan
     orcid: "https://orcid.org/0000-0003-3959-3758"
 repository-code: "https://github.com/jgewirtzman/ch4-data-filtering"
+license: MIT
 keywords:
   - chamber flux
   - greenhouse gas

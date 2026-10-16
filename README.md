@@ -11,6 +11,7 @@ The paper follows the processing chain after a chamber flux is fitted (instrumen
 ```
 scripts/        Analysis pipeline (run_all.R runs it in order)
 analysis/       Precision-estimator comparison on simulated records (feeds Fig. S2)
+results/        Closure-level results for the stems (stem_closures_processed.csv; columns in results/README.md)
 data/           Inputs: closure-level fluxes, chamber geometry, field logs, processed traces
 figures/        Created by the pipeline (not tracked)
 outputs/        Intermediate results created by the pipeline (not tracked)
@@ -43,6 +44,7 @@ source("scripts/run_all.R")
 | `20_generality.R` | The same quantities for every dataset | Fig. 9, Table S4 |
 | `21_logging_interval.R` | Re-logged 1 Hz records at 2, 5 and 10 s | Fig. S3 |
 | `22_transform_inference.R` | What each transformation does to tests, on the stems and in simulation | Fig. 8c, Fig. S6 |
+| `23_export_closures.R` | Closure-level results table for the stems | `results/` |
 | `19_main_figures.R` | Assembles the main-text figures (style in `style.R`) | Figs. 1, 3, 4, 6–9 |
 | `11_organize_figures.R` | Copies figures to `figures/main_text/` and `figures/SI/` with paper numbering | |
 
@@ -50,16 +52,18 @@ Scripts 03 onward read intermediate results from `outputs/` and can be re-run in
 
 ## Data
 
+The small inputs are copied here so that scripts 01–23 run from the repository; the authoritative versions are the sources listed.
+
 | Folder | Contents | Source |
 |---|---|---|
-| `data/stem/` | Harvard Forest stem fluxes 2023–2025, chamber volumes, field logs | J. Gewirtzman et al., in prep. |
-| `data/stem_raw/` | Raw 1 Hz analyzer records (≈650 MB; **not in the repository**, see below) | as above |
-| `data/canopy/`, `data/ymf_canopy/` | Canopy closures (stems, branches, leaves) and processed traces | Gewirtzman et al. (in review) |
+| `data/stem/` | Harvard Forest stem fluxes 2023–2025 (source table), chamber volumes, field logs | J. Gewirtzman et al., in prep.; to be archived with the raw records (below) |
+| `data/stem_raw/` | Raw 1 Hz analyzer records (≈650 MB; **not in the repository**) | Harvard Forest Data Archive package of the stem study (DOI to follow) |
+| `data/canopy/`, `data/ymf_canopy/` | Canopy closures (stems, branches, leaves) and processed traces, used for the precision of two analyzer units | Gewirtzman et al. (in review) |
 | `data/soil/` | Yale-Myers Forest upland–wetland soil fluxes | Gewirtzman (2026), doi:10.5281/zenodo.18779715 |
 | `data/external/` | Raw soil closure windows (75 MB; **not in the repository**) | same Zenodo record |
 | `data/agsoil/` | De-identified agricultural-soil CH₄ and N₂O closures (**not in the repository** until their source study is published; see `data/agsoil/README.md`) | J. Gewirtzman et al., in prep. |
 
-To reproduce from the raw records, place the raw analyzer files in `data/stem_raw/` (layout in `data/stem_raw/README.md`) and the soil closure windows (`lgr_manual_identification_results_soil.csv`) in `data/external/`, or set the environment variable `SOIL_WINDOWS` to that file. Archived copies of the raw records and of the closure-level outputs (fluxes, precision, detection classes, screen results) will be deposited on Zenodo with a DOI on publication.
+To rerun from the raw records, place the analyzer files in `data/stem_raw/` (layout in `data/stem_raw/README.md`) and the soil closure windows (`lgr_manual_identification_results_soil.csv`) in `data/external/`, or set the environment variable `SOIL_WINDOWS` to that file. Scripts 03 onward run from the intermediate results of 01–02b. The paper's closure-level results for the stems are in `results/stem_closures_processed.csv`.
 
 ## Requirements
 
@@ -74,4 +78,4 @@ Versions used for the paper: R 4.4.3; dplyr 1.2.0, tidyr 1.3.2, ggplot2 4.0.2, p
 
 ## Licence
 
-To be added with the archived release.
+Code: MIT (`LICENSE`). Data tables and results in `data/` and `results/`: CC BY 4.0 (`LICENSE-data`).
