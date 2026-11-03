@@ -7,7 +7,8 @@
 #
 #   closure window  = field-log comp_start..comp_end (LGR, analyzer clock) or the
 #                     REMARK run (LI-7810); no dead band, no sub-window search
-#   fit             = goFlux::goFlux() LM + HM, goFlux::best.flux() with its default
+#   fit             = goFlux::goFlux() LM + HM with prec = campaign sigma, conf = 0.95,
+#                     goFlux::best.flux() with its default
 #                     criteria (MAE, RMSE, AICc, SE, g-factor < 2, kappa <= kappa.max
 #                     [Hüppi et al. 2018], MDF, nb.obs, intercept, p-value)
 #   detection       = goFlux::flux.class(prec = that analyzer x field day's campaign
@@ -153,9 +154,31 @@ message("  window length (s): median ", round(median(win_len$t_sec)), ", range "
 # PART 3: goFlux LM + HM, best.flux
 # ============================================================================
 
+# sigma per group: the closure-median second-difference precision of that analyzer x
+# day from 02; fall back to the analyzer's median day (mad_inst_median) if a day is missing
+sig_day <- mad_days %>% filter(!duplicated(paste(instrument, date_str))) %>%
+  transmute(grp = paste(instrument, date_str), sig_CH4 = mad_sd_CH4, sig_CO2 = mad_sd_CO2)
+sig_grp <- manID %>% distinct(grp, analyzer) %>%
+  left_join(sig_day, by = "grp") %>%
+  left_join(mad_inst_median %>% transmute(analyzer = instrument, med_CH4 = mad_sd_CH4,
+                                          med_CO2 = mad_sd_CO2), by = "analyzer") %>%
+  mutate(sig_src = if_else(is.na(sig_CH4), "analyzer median day", "day"),
+         sig_CH4 = coalesce(sig_CH4, med_CH4), sig_CO2 = coalesce(sig_CO2, med_CO2))
+message("  sigma source: "); print(table(sig_grp$sig_src))
+
 message("\n=== goFlux fits (LM + HM) ===")
-ch4_flux <- suppressWarnings(goFlux(manID, "CH4dry_ppb", H2O_col = "H2O_ppm", warn.length = 60))
-co2_flux <- suppressWarnings(goFlux(manID, "CO2dry_ppm", H2O_col = "H2O_ppm", warn.length = 60))
+# Fitting precision: the campaign sigma, with conf = 0.95 so that goFlux's MDF column
+# (and with it the HM kappa.max bound and best.flux's MDF criterion) is the reference
+# MDF, 1.96 sigma / t x flux.term, while the RMSE, MAE and SE criteria compare the fit
+# residuals with sigma itself. Detection (flux.class) uses the same sigma.
+manID_fit <- manID
+ig <- match(manID_fit$grp, sig_grp$grp)
+manID_fit$CH4_prec <- sig_grp$sig_CH4[ig]
+manID_fit$CO2_prec <- sig_grp$sig_CO2[ig]
+stopifnot(!anyNA(manID_fit$CH4_prec[manID_fit$flag == 1]), !anyNA(manID_fit$CO2_prec[manID_fit$flag == 1]))
+ch4_flux <- suppressWarnings(goFlux(manID_fit, "CH4dry_ppb", H2O_col = "H2O_ppm", warn.length = 60, conf = 0.95))
+co2_flux <- suppressWarnings(goFlux(manID_fit, "CO2dry_ppm", H2O_col = "H2O_ppm", warn.length = 60, conf = 0.95))
+rm(manID_fit, ig)
 # best.flux defaults: MAE, RMSE, AICc, SE, g.factor (< 2), kappa (k.ratio 1;
 # kappa.max after Hüppi et al. 2018), MDF, nb.obs, intercept, p-value
 ch4_best <- do.call(best.flux, c(list(ch4_flux), best_args))
@@ -172,17 +195,6 @@ key <- manID %>% distinct(UniqueID, grp, analyzer, date_str)
 ch4_best <- ch4_best %>% left_join(key, by = "UniqueID")
 co2_best <- co2_best %>% left_join(key, by = "UniqueID")
 
-# sigma per group: the closure-median second-difference precision of that analyzer x
-# day from 02; fall back to the analyzer's median day (mad_inst_median) if a day is missing
-sig_day <- mad_days %>% filter(!duplicated(paste(instrument, date_str))) %>%
-  transmute(grp = paste(instrument, date_str), sig_CH4 = mad_sd_CH4, sig_CO2 = mad_sd_CO2)
-sig_grp <- key %>% distinct(grp, analyzer) %>%
-  left_join(sig_day, by = "grp") %>%
-  left_join(mad_inst_median %>% transmute(analyzer = instrument, med_CH4 = mad_sd_CH4,
-                                          med_CO2 = mad_sd_CO2), by = "analyzer") %>%
-  mutate(sig_src = if_else(is.na(sig_CH4), "analyzer median day", "day"),
-         sig_CH4 = coalesce(sig_CH4, med_CH4), sig_CO2 = coalesce(sig_CO2, med_CO2))
-message("  sigma source: "); print(table(sig_grp$sig_src))
 
 classify <- function(best, gas, sig_col) {
   pr <- data.frame(UniqueID = best$UniqueID, prec = sig_grp[[sig_col]][match(best$grp, sig_grp$grp)])
