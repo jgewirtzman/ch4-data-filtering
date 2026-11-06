@@ -32,24 +32,27 @@ copy_set <- function(map, dest) {
 message("\n=== Main text figures ===")
 copy_set(c(
   "fig1_processing_chain.png"       = "processing_chain.png",
-  "fig2_sigma_explained.png"        = "sigma_explained.png",
-  "fig3_precision_detection.png"    = "precision_detection.png",
-  "fig4_regression_vs_mdf.png"      = "regression_vs_mdf.png",
-  "fig5_co2_tracer.png"             = "co2_validity_examples.png",
-  "fig6_r2_seasonal.png"            = "r2_seasonal.png",
-  "fig7_treatment_budget.png"       = "treatment_budget.png",
-  "fig8_transformation.png"         = "transformation.png",
-  "fig9_generality.png"             = "generality.png"
+  "fig2_precision_detection.png"    = "precision_detection.png",
+  "fig3_regression_vs_mdf.png"      = "regression_vs_mdf.png",
+  "fig4_co2_tracer.png"             = "co2_validity_examples.png",
+  "fig5_r2_seasonal.png"            = "r2_seasonal.png",
+  "fig6_treatment_budget.png"       = "treatment_budget.png",
+  "fig7_transformation.png"         = "transformation.png",
+  "fig8_budget_statistic.png"       = "budget_statistic.png"
 ), main_dir)
 
 message("\n=== SI figures ===")
 copy_set(c(
-  "figS01_worked_example_mdf.png"          = "worked_example_mdf.png",
-  "figS02_sigma_alternatives.png"          = "sigma_alternatives.png",
-  "figS03_logging_interval.png"            = "si_logging_interval.png",
-  "figS04_known_truth_simulation.png"      = "known_truth_simulation.png",
+  "figS01_sigma_walkthrough.png"           = "sigma_explained.png",
+  "figS02_worked_example_mdf.png"          = "worked_example_mdf.png",
+  "figS03_sigma_alternatives.png"          = "sigma_alternatives.png",
+  "figS04_logging_interval.png"            = "si_logging_interval.png",
   "figS05_mdf_vs_duration.png"             = "mdf_vs_duration.png",
-  "figS06_transform_demo.png"              = "si_transform_demo.png"
+  "figS06_detection_power.png"             = "si_detection_power.png",
+  "figS07_treatment_threshold.png"         = "si_treatment_threshold.png",
+  "figS08_generality.png"                  = "si_generality.png",
+  "figS09_transform_demo.png"              = "si_transform_demo.png",
+  "figS10_concentration.png"               = "si_concentration.png"
 ), si_dir)
 
 message("\nMain: ", length(list.files(main_dir, "\\.png$")), " figures; SI: ",

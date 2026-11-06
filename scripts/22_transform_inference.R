@@ -31,7 +31,7 @@ TRANS <- list(
   "log10, positives"    = list(f = function(x) log10(pmax(x, 1e-12)), keep = function(x) x > 0,           q10 = log(10)),
   "log10(x + 1)"        = list(f = function(x) log10(x + 1),          keep = function(x) x > -1,          q10 = log(10)),
   "arcsinh(x)"          = list(f = function(x) asinh(x),              keep = function(x) rep(TRUE, length(x)), q10 = 1),
-  "arcsinh(x / MDF)"    = list(f = function(x) asinh(x / s_mdf),      keep = function(x) rep(TRUE, length(x)), q10 = 1)
+  "arcsinh(x / MDF)"    = list(f = function(x) goFlux::flux.asinh(x, s_mdf),keep = function(x) rep(TRUE, length(x)), q10 = 1)
 )
 # Implied Q10 from a slope b per degree on a log-like scale with base factor k: exp(10 * k * b)
 q10_of <- function(b, k) if (is.na(k)) NA_real_ else exp(10 * k * b)
@@ -77,7 +77,7 @@ ord <- sapply(names(TRANS), function(nm) { tr <- TRANS[[nm]]; k <- tr$keep(d$flu
 sp_means <- d %>% group_by(species) %>%
   summarise(`Arithmetic mean` = mean(flux),
             `Back-transformed, log10 (positives)` = 10^mean(log10(flux[flux > 0])),
-            `Back-transformed, arcsinh(flux / MDF)` = s_mdf * sinh(mean(asinh(flux / s_mdf))),
+            `Back-transformed, arcsinh(flux / MDF)` = goFlux::flux.asinh(mean(goFlux::flux.asinh(flux, s_mdf)), s_mdf, inverse = TRUE),
             n = n(), .groups = "drop")
 print(as.data.frame(sp_means), digits = 3)
 print(real, digits = 3); message("Reference Q10 (arithmetic bin means): ", round(q10_ref, 2)); print(ord)
@@ -85,7 +85,7 @@ print(real, digits = 3); message("Reference Q10 (arithmetic bin means): ", round
 # ── 1b. The same workflows on 20 everyday comparisons ────────────────────────
 dd0 <- d %>% mutate(season = ifelse(grepl("Growing", season), "Growing", "Dormant"))
 TRK <- list("Raw" = function(x) x, "log10, positives" = function(x) log10(pmax(x, 1e-12)), "log10(x + 1)" = function(x) log10(x + 1),
-            "arcsinh(x)" = function(x) asinh(x), "arcsinh(x / MDF)" = function(x) asinh(x / s_mdf), "Ranks" = function(x) rank(x))
+            "arcsinh(x)" = function(x) asinh(x), "arcsinh(x / MDF)" = function(x) goFlux::flux.asinh(x, s_mdf), "Ranks" = function(x) rank(x))
 test_all <- function(dd, term) sapply(names(TRK), function(nm) {
   k <- if (nm == "log10, positives") dd$flux > 0 else rep(TRUE, nrow(dd)); x <- dd[k, ]; x$y <- TRK[[nm]](x$flux)
   m1 <- try(suppressMessages(lmer(as.formula(paste("y ~", term, "+ (1 | tree)")), x, REML = FALSE)), silent = TRUE)
@@ -103,7 +103,7 @@ print(signif(cmp_p, 2))
 # Worked example: A. rubrum vs T. canadensis, end to end
 ex <- dd0 %>% filter(species %in% c("A. rubrum", "T. canadensis")) %>% mutate(species = factor(species, levels = c("T. canadensis", "A. rubrum")))
 back <- list("Raw" = function(m) m, "log10, positives" = function(m) 10^m, "log10(x + 1)" = function(m) 10^m - 1,
-             "arcsinh(x)" = function(m) sinh(m), "arcsinh(x / MDF)" = function(m) s_mdf * sinh(m), "Ranks" = function(m) NA)
+             "arcsinh(x)" = function(m) sinh(m), "arcsinh(x / MDF)" = function(m) goFlux::flux.asinh(m, s_mdf, inverse = TRUE), "Ranks" = function(m) NA)
 wf <- do.call(rbind, lapply(names(TRK), function(nm) {
   k <- if (nm == "log10, positives") ex$flux > 0 else rep(TRUE, nrow(ex)); x <- ex[k, ]; x$y <- TRK[[nm]](x$flux)
   m1 <- lmer(y ~ species + (1 | tree), x, REML = FALSE); m0 <- lmer(y ~ 1 + (1 | tree), x, REML = FALSE)
@@ -125,7 +125,7 @@ measure <- function(f) {                      # fitted flux of each closure unde
   as.vector(x %*% tc) / Sxx * FLUX_TERM
 }
 s_sim <- Z95 * SIG / N_OBS * FLUX_TERM        # the reference MDF of these closures
-TRANS_SIM <- TRANS; TRANS_SIM[["arcsinh(x / MDF)"]]$f <- function(x) asinh(x / s_sim)
+TRANS_SIM <- TRANS; TRANS_SIM[["arcsinh(x / MDF)"]]$f <- function(x) goFlux::flux.asinh(x, s_sim)
 true_flux_up <- function(n, temp, p_up) sim_true_flux(n, temp, p_up = p_up)   # same emission, more small uptake
 one_group_test <- function(mult, n_month = 10, p_up2 = NULL) {
   g1 <- unlist(lapply(1:12, function(m) measure(true_flux(n_month, temp_m[m]))))
@@ -142,8 +142,8 @@ grp_sim <- data.frame(method = colnames(p_null), false_pos = 100 * colMeans(p_nu
                       power_2fold = 100 * colMeans(p_alt < 0.05), power_uptake_share = 100 * colMeans(p_up < 0.05))
 # Whether and how much: two groups, true means 2-fold apart; each workflow's test and reported ratio
 BACK <- list("Raw" = function(m) m, "log10, positives" = function(m) 10^m, "log10(x + 1)" = function(m) 10^m - 1,
-             "arcsinh(x)" = function(m) sinh(m), "arcsinh(x / MDF)" = function(m) s_sim * sinh(m))
-true_flux_hot <- function(n, temp)             # same median, wider spread: mean 2-fold, typical closure unchanged
+             "arcsinh(x)" = function(m) sinh(m), "arcsinh(x / MDF)" = function(m) goFlux::flux.asinh(m, s_sim, inverse = TRUE))
+true_flux_hot <- function(n, temp)             # same median of the emissions, wider spread: mean ~2-fold, signed median ~5 % lower
   sim_true_flux(n, temp, sdlog = sqrt(1.3^2 + 2 * log(2)))
 two_groups <- function(n_month = 10, hot = FALSE) {
   g1 <- unlist(lapply(1:12, function(m) measure(true_flux(n_month, temp_m[m]))))
@@ -160,8 +160,8 @@ summ_wh <- function(tg, scen) do.call(rbind, lapply(names(tg[[1]]), function(nm)
   pp <- sapply(tg, function(z) z[[nm]][["p"]]); rr <- sapply(tg, function(z) z[[nm]][["ratio"]])
   data.frame(scenario = scen, method = nm, detected = 100 * mean(pp < 0.05), ratio_med = median(rr),
              ratio_lo = quantile(rr, 0.05, na.rm = TRUE), ratio_hi = quantile(rr, 0.95, na.rm = TRUE)) }))
-wh <- rbind(summ_wh(replicate(N_REP, two_groups(), simplify = FALSE), "Every flux 2\u00d7 larger"),
-            summ_wh(replicate(N_REP, two_groups(hot = TRUE), simplify = FALSE), "More hot spots (mean 2\u00d7, median unchanged)"))
+wh <- rbind(summ_wh(replicate(N_REP, two_groups(), simplify = FALSE), "Emission 2\u00d7 larger, uptake unchanged"),
+            summ_wh(replicate(N_REP, two_groups(hot = TRUE), simplify = FALSE), "More hot spots (mean \u22482\u00d7, median \u2248 unchanged)"))
 rownames(wh) <- NULL; print(wh, digits = 3)
 q10_sim <- t(replicate(200, {
   temp <- rep(temp_m, each = 40); f <- measure(unlist(lapply(temp_m, function(tm) true_flux(40, tm))))

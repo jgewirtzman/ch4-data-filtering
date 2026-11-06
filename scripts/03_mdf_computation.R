@@ -35,6 +35,15 @@ if (file.exists(f02b)) {
   # closures without an archived raw record cannot be refitted or given their own
   # precision; they are dropped so that every stem closure is processed the same way
   df <- df %>% filter(flux_src == "goFlux")
+  # closure duration and regression half-width as goFlux computes them (flux.class() in 02b:
+  # det.t = closure.time() of the fitted window; det.reg.half = Cowan et al. 2025 half-width
+  # at the campaign sigma), so that every MDF and interval is the fork's
+  if (!all(c("det.t", "det.reg.half") %in% names(ch4_best)))
+    stop("02b_goflux_fluxes.RData lacks det.t/det.reg.half (made with goFlux < 0.5.0.9003): ",
+         "rerun 02b with the raw records, or refresh data/derived_from_stem_raw/")
+  ib <- match(df$stem_id, ch4_best$UniqueID)
+  df$t_fit <- ch4_best$det.t[ib]
+  df$CH4_reg_half <- ch4_best$det.reg.half[ib]
   message("Kept the ", nrow(df), " stem closures with an archived raw record")
 } else {
   stop("outputs/02b_goflux_fluxes.RData not found: run scripts/02b_goflux_fluxes.R first")
@@ -54,12 +63,12 @@ message("\n=== Computing stem MDF thresholds ===")
 
 df <- df %>%
   mutate(
-    # flux_term = nmol / surfarea
-    flux_term = nmol / surfarea,
+    # flux term of the goFlux fit (02b; dry-air moles per area, water-corrected): a slope
+    # times this flux term is the flux, so the MDF and the flux use the same conversion
+    flux_term = flux_term_goflux,
 
-    # Closure length in seconds (from 02; span + logging interval); fall back
-    # to 300 s if the raw record was not found
-    t_sec_est = if_else(!is.na(t_sec), as.numeric(t_sec), 300),
+    # Closure length in seconds: goFlux's (span of the fitted window + one logging interval)
+    t_sec_est = t_fit,
 
     # Noise floor in flux units: the closure's own second-difference precision
     # (sigma_i, the estimator used throughout) / t * flux_term
@@ -164,10 +173,12 @@ df <- df %>%
     CH4_below_MDF_ref = CH4_below_MDF_wass95,
     CH4_det_class     = case_when(
       is.na(CH4_MDF_ref)                    ~ NA_character_,
-      CH4_flux_nmolpm2ps >  CH4_MDF_ref     ~ "emission",
-      CH4_flux_nmolpm2ps < -CH4_MDF_ref     ~ "uptake",
+      CH4_flux_nmolpm2ps >= CH4_MDF_ref     ~ "emission",
+      CH4_flux_nmolpm2ps <= -CH4_MDF_ref     ~ "uptake",
       TRUE                                  ~ "below detection")
   )
+# the reference MDF is goFlux's own (flux.class with the campaign sigma, z = 1.96)
+stopifnot(isTRUE(all.equal(df$CH4_MDF_ref, df$CH4_MDF_det)))
 
 # ============================================================================
 # STEM MDF SUMMARY
@@ -296,8 +307,8 @@ compute_mdf_all <- function(compiled, allan_df, rw_df, mad_df, tsec_df) {
       CH4_below_MDF_ref = CH4_below_MDF_wass95,
       CH4_det_class     = case_when(
         is.na(CH4_MDF_ref)               ~ NA_character_,
-        CH4_best.flux >  CH4_MDF_ref     ~ "emission",
-        CH4_best.flux < -CH4_MDF_ref     ~ "uptake",
+        CH4_best.flux >= CH4_MDF_ref     ~ "emission",
+        CH4_best.flux <= -CH4_MDF_ref     ~ "uptake",
         TRUE                             ~ "below detection")
     )
 
@@ -483,7 +494,13 @@ print(precision_summary)
 
 message("\n=== Saving MDF results ===")
 
-save(df, n_total,
+# validity: drop closures that failed the start-above-ambient screen (05_start_screen.R);
+# df_unscreened keeps them for that screen
+df_unscreened <- df
+df <- df %>% filter(!stem_id %in% invalid_ids("Stems"))
+message("Dropped ", nrow(df_unscreened) - nrow(df), " stem closures failing the validity screen")
+
+save(df, df_unscreened, n_total,
      global_sd_ch4_lgr, global_sd_ch4_7810,
      hf_out, ymf_out,
      mad_results, mad_days, mad_inst_median, tsec_hf, tsec_ymf,

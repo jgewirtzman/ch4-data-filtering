@@ -257,6 +257,28 @@ removal_detail$ci_width_ratio <- round(
 
 cat("\n--- Filter effect on mean AND CI width ---\n")
 print(removal_detail, row.names = FALSE)
+# Design-appropriate interval: bootstrap over trees (resample the trees with replacement and keep
+# every retained closure of each sampled tree), 95 % percentile interval; the reported widening
+set.seed(20261106)
+df_nf$tree <- paste(df_nf$PLOT, df_nf$Tree)
+keep_of <- function(filt_name, d) {
+  if (filt_name == "No filter") return(rep(TRUE, nrow(d)))
+  if (grepl("Camp|Chr", filt_name)) {
+    conf <- sub("(Camp|Chr) (\\d+)%", "\\2", filt_name)
+    col <- paste0("CH4_below_MDF_", if (grepl("Camp", filt_name)) "wass" else "chr", conf)
+    return(!is.na(d[[col]]) & !d[[col]])
+  }
+  d$CH4_r2 > as.numeric(sub("R² > ", "", filt_name))
+}
+trees <- unique(df_nf$tree); idx <- split(seq_len(nrow(df_nf)), df_nf$tree)
+boot_tree <- t(replicate(4000, {
+  rows <- unlist(idx[sample(trees, replace = TRUE)], use.names = FALSE); d <- df_nf[rows, ]
+  sapply(removal_detail$filter, function(f) mean(d$CH4_flux_nmolpm2ps[keep_of(f, d)]))
+}))
+removal_detail$ci_width_tree <- apply(boot_tree, 2, function(v) diff(quantile(v, c(0.025, 0.975), na.rm = TRUE)))
+removal_detail$ci_width_ratio_tree <- round(removal_detail$ci_width_tree / removal_detail$ci_width_tree[removal_detail$filter == "No filter"], 2)
+cat("\n--- 95 % interval width, bootstrap over trees (", length(trees), " trees) ---\n")
+print(removal_detail[, c("filter", "n", "mean", "ci_width_tree", "ci_width_ratio_tree")], row.names = FALSE)
 cat("\nci_width_ratio > 1: CI wider after removal (more variance in retained subset)\n")
 cat("ci_width_ratio < 1: CI narrower (fewer measurements → less power)\n")
 

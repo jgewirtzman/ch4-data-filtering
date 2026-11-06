@@ -6,6 +6,8 @@
 # 15_co2_validity_figure.R and 17_sigma_figures.R run without the raw archive
 # (data/stem_raw/, ~650 MB):
 #   fig5_co2_tracer.csv          Fig. 5: the four CO2-tracer example closures (LGR1)
+#   fig5_context.csv             Fig. 5: the two uptake closures and every panel's
+#                                pre-closure ambient (from 02b's windows)
 #   fig2_sigma_day.csv           Fig. 2: every closure of the precise analyzer's example
 #                                day (LI-7810, 2025-06-03)
 #   worked_example_closures.csv  Sect. S1 / Fig. S1: the two noisier analyzer (LGR1)
@@ -143,4 +145,21 @@ local({
                time_s = as.numeric(s$POSIX.time), CH4d_ppm = ppm, stringsAsFactors = FALSE)
   }))
   write_checked(we, "worked_example_closures.csv")
+
+  # --------------------------------------------------------------------------
+  # Fig. 5, uptake panels and ambient reference (15_co2_validity_figure.R): the whole
+  # extracted record (from 60 s before the fitting window to its end, flag 1 = window)
+  # of the six closures drawn in Fig. 5, from 02b's windows. 15 draws the two uptake
+  # closures from these readings and, for every panel, the CH4 before the chamber was
+  # placed (median of the record's first 10 s) as a reference line
+  # --------------------------------------------------------------------------
+  ctx <- manID %>%
+    filter(UniqueID %in% c("s0752", "s0716", "s1135", "s0933", "s1332", "s1059")) %>%
+    arrange(UniqueID, POSIX.time) %>%
+    transmute(stem_id = UniqueID, analyzer, time_s = as.numeric(POSIX.time),
+              CO2d_ppm = CO2dry_ppm, CH4d_ppb = CH4dry_ppb, flag = as.integer(flag))
+  # (drawn, not computed on: written at full precision without the read-back check)
+  write.csv(ctx %>% mutate(across(c(CO2d_ppm, CH4d_ppb), ~ signif(.x, 10))),
+            file.path(fig_closures_dir, "fig5_context.csv"), row.names = FALSE)
+  message("14: wrote ", file.path(fig_closures_dir, "fig5_context.csv"), " (", nrow(ctx), " readings)")
 })

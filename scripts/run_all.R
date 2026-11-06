@@ -34,6 +34,11 @@ if (raw_available) {
 # 03: MDF thresholds and below-MDF flags (stems and canopy)
 source("scripts/03_mdf_computation.R")
 
+# 05: Validity screen (start above ambient) -> data/invalid_closures.csv; 03 is rerun so that
+#     every later script uses the screened closures
+source("scripts/05_start_screen.R")
+source("scripts/03_mdf_computation.R")
+
 # 07: Below-MDF treatment comparison
 source("scripts/07_treatment_comparison.R")
 
@@ -65,8 +70,16 @@ source("scripts/17_sigma_figures.R")
 # 18: Known-truth simulation (filters and treatments scored against the true flux)
 source("scripts/18_known_truth_simulation.R")
 
+# 24: Coastal wetland closures from the raw records (local only; skipped without them,
+#     and 20 then uses the tracked closure table in data/from_coastal_wetland_study/).
+#     The windows were picked by hand with the interactive 24a_click_coastal_windows.R.
+source("scripts/24_coastal_wetland.R")
+
 # 20: Same chain across gases, surfaces and analyzers (generality table)
 source("scripts/20_generality.R")
+
+# 25: Which statistic a budget scales from; outlier removal
+source("scripts/25_budget_statistic.R")
 
 # 21: Logging interval: re-logged 1 Hz records
 source("scripts/21_logging_interval.R")

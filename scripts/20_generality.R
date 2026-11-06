@@ -20,10 +20,6 @@
 source("scripts/00_setup.R")
 suppressPackageStartupMessages(library(data.table))
 
-# Second-difference sigma of one closure, over consecutive readings (logging gaps not
-# split, unlike sigma_closure() in 00_setup.R; switching changes the wetland row of
-# Table S4 slightly, so the published values keep this form)
-sig2 <- function(x) { d2 <- diff(x, differences = 2); 1.4826 * median(abs(d2 - median(d2))) / sqrt(6) }
 mag_change <- function(v, keep) {           # % change in |statistic| when only `keep` is retained
   c(mean = 100 * (abs(mean(v[keep])) / abs(mean(v)) - 1),
     median = 100 * (abs(median(v[keep])) / abs(median(v)) - 1))
@@ -33,6 +29,9 @@ summ <- function(name, gas, surface, analyzer, flux, r2, sigma, spec, mdf_ref, m
   flux <- flux[ok]; r2 <- r2[ok]; mdf_ref <- mdf_ref[ok]; mdf_ds <- mdf_ds[ok]
   below <- abs(flux) < mdf_ref
   rm_mdf <- mag_change(flux, !below); rm_r2 <- mag_change(flux, is.finite(r2) & r2 > 0.5)
+  # a change in |median| is not meaningful when the median and the mean differ in sign
+  # (wetland soils and coastal-wetland N2O: median within the MDF of zero and negative, mean positive)
+  if (sign(median(flux)) != sign(mean(flux))) rm_mdf[["median"]] <- rm_r2[["median"]] <- NA_real_
   data.frame(dataset = name, gas = gas, surface = surface, analyzer = analyzer, n = length(flux),
              sigma = sigma, spec = spec, sigma_ratio = sigma / spec,
              pct_below_ref = 100 * mean(below), pct_below_ds = 100 * mean(abs(flux) < mdf_ds, na.rm = TRUE),
@@ -64,7 +63,10 @@ win <- fread(win_file)
 win <- win[flag == 1 & is.finite(CH4dry_ppb)]
 win[, POSIX.time := as.POSIXct(POSIX.time, tz = "UTC")]
 setorder(win, UniqueID, POSIX.time)
-cl <- win[, .(sigma_i = sig2(CH4dry_ppb), t = as.numeric(diff(range(POSIX.time)), units = "secs") + 1,
+# per-closure sigma (goFlux::empirical.prec via sigma_closure(): second differences only over
+# consecutive, equally spaced readings) and duration (goFlux::closure.time), as for the stems
+cl <- win[, .(sigma_i = sigma_closure(CH4dry_ppb, POSIX.time),
+              t = goFlux::closure.time(as.numeric(POSIX.time) - as.numeric(min(POSIX.time))),
               day = as.character(as.Date(POSIX.time[1]))), by = UniqueID]
 cl[, sigma_c := median(sigma_i, na.rm = TRUE), by = day]
 gf <- read.csv(file.path(soil_dir, "CH4_best_flux_lgr_results_soil.csv"))
@@ -91,6 +93,18 @@ for (g in c("CH4", "N2O")) {
   ds <- m * spec_ag[[g]] / (Z95 * s)          # datasheet MDF, k = 1: same t and flux term
   rows[[paste("Ag", g)]] <- summ(paste("Agricultural soil,", g), g, "Agricultural soil", "Precise analyzer",
                                 f, ag[[paste0(g, "_r2")]], median(s, na.rm = TRUE), spec_ag[[g]], m, ds)
+}
+
+# ── Coastal wetland (mangrove-saltmarsh; CH4 and N2O, precise analyzers) ──────
+# Closure table from 24_coastal_wetland.R (hand-picked windows); skipped if absent
+coastal_file <- file.path(data_dir, "from_coastal_wetland_study", "coastal_closures.csv")
+if (file.exists(coastal_file)) {
+  cw <- read.csv(coastal_file)
+  for (g in c("CH4", "N2O")) {
+    d <- cw[cw$gas == g, ]
+    rows[[paste("Coastal", g)]] <- summ(paste("Coastal wetland,", g), g, "Coastal wetland", "Precise analyzer",
+                                        d$best.flux, d$LM.r2, median(d$sigma_c), spec_ag[[g]], d$MDF_ref, d$MDF_ds)
+  }
 }
 
 gen <- do.call(rbind, rows); rownames(gen) <- NULL

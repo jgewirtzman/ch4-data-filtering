@@ -1,0 +1,4 @@
+"dataset","gas","closure","air_before_ppb","window_start_ppb","flux","mdf"
+"Soils","CH4","20200617_2-3-WS_19",2029.7,49049,-175.1,0.0562
+"Stems","CH4","s0575",1798.5,7367.4,-0.7363,0.125
+"Stems","CH4","s1381",2034.2,10739,-53.29,0.019

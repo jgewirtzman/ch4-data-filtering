@@ -14,7 +14,7 @@ as additional or independent data in compilations, syntheses or meta-analyses.
 | File | Written by | Main contents | Needed by |
 |---|---|---|---|
 | `02_allan_deviation.RData` | 02 | per-closure precision (second-difference σ, Allan deviation), closure length and logging interval, campaign σ per analyzer and day, slope p-values, the canopy precision results (`mad_results`, `rw_results`, `allan_hf`, `tsec_hf`, …), and the stem table `df` with these columns | 03, 17 |
-| `02b_goflux_fluxes.RData` | 02b | goFlux refits of the 1547 stem closures with a raw record (`ch4_best`, `co2_best`), campaign σ per group (`sig_grp`), closure windows (`windows`), and `df` with the refitted fluxes, detection classes and trace screens | 03, 17 |
+| `02b_goflux_fluxes.RData` | 02b | goFlux (0.5.0.9003) refits of the 1547 stem closures with a raw record (`ch4_best`, `co2_best`), campaign σ per group (`sig_grp`), closure windows (`windows`), and `df` with the refitted fluxes, detection classes and trace screens | 03, 17 |
 | `02b_manID.RData` | 02b | the raw readings inside every fitted stem closure window (`manID`, 477,255 rows) | 17, 21 |
 
 **How the pipeline uses them.** When the raw records are absent (`data/stem_raw/LGR/LGR1` and

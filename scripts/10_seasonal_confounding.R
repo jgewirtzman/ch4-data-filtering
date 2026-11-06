@@ -313,11 +313,11 @@ monthly_budget <- lapply(names(treatments), function(trt) {
   # Fill missing months with 0 for cumulative sum (or NA)
   all_months <- data.frame(month_num = 1:12)
   monthly <- merge(all_months, monthly, by = "month_num", all.x = TRUE)
-  monthly$mean_flux[is.na(monthly$mean_flux)] <- 0
+  # a month without closures stays NA: nothing is filled; figures compare treatments over common months
   monthly$n[is.na(monthly$n)] <- 0
 
   monthly$treatment <- trt
-  monthly$cum_flux  <- cumsum(monthly$mean_flux)
+  monthly$cum_flux  <- cumsum(ifelse(is.na(monthly$mean_flux), 0, monthly$mean_flux))
   monthly
 })
 monthly_budget_df <- do.call(rbind, monthly_budget)
@@ -395,7 +395,7 @@ message("========================================================\n")
 load(file.path(output_dir, "01_loaded_data.RData"))
 
 soil <- soil_flux %>%
-  filter(measurement_type == "soil",
+  filter(measurement_type == "soil", !unique_id %in% invalid_ids("Soils"),
          !is.na(CH4_best_flux_nmol_m2_s),
          !is.na(CH4_LM_r2))
 
@@ -638,12 +638,12 @@ soil_budget <- lapply(names(soil_treatments), function(trt) {
   # Ensure all months are present
   all_ym <- data.frame(year_month = unique_ym, stringsAsFactors = FALSE)
   monthly <- merge(all_ym, monthly, by = "year_month", all.x = TRUE)
-  monthly$mean_flux[is.na(monthly$mean_flux)] <- 0
+  # a month without closures stays NA: nothing is filled; figures compare treatments over common months
   monthly$n[is.na(monthly$n)] <- 0
   monthly <- monthly[order(monthly$year_month), ]
 
   monthly$treatment <- trt
-  monthly$cum_flux  <- cumsum(monthly$mean_flux)
+  monthly$cum_flux  <- cumsum(ifelse(is.na(monthly$mean_flux), 0, monthly$mean_flux))
   monthly$month_idx <- seq_len(nrow(monthly))
 
   # Date midpoint of each month

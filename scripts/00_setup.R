@@ -106,15 +106,15 @@ allan_sd <- function(x) {
 }
 
 # ── Precision, closure duration and detection: the goFlux fork is the single source ──
-# goFlux (Rheault et al. 2024) version 0.5.0.9002 with additions (Gewirtzman 2026,
-# doi:10.5281/zenodo.23256675; https://github.com/jgewirtzman/goFlux, tag v0.5.0.9002),
+# goFlux (Rheault et al. 2024) version 0.5.0.9003 with additions (Gewirtzman 2026,
+# doi:10.5281/zenodo.23383778; https://github.com/jgewirtzman/goFlux, tag v0.5.0.9003),
 # installed in the project-only library set by .Rprofile so other projects keep their goFlux.
 # The helpers below are thin wrappers that keep this repo's call sites; all estimation is
-# done by the fork (empirical.prec, closure.time, spec.at.interval, flux.class, qc.flags).
+# done by the fork (empirical.prec, closure.time, spec.at.interval, flux.class incl. det.reg.half, qc.flags, flux.asinh).
 if (!requireNamespace("goFlux", quietly = TRUE) ||
-    utils::packageVersion("goFlux") < "0.5.0.9002")
-  stop("This repo needs the goFlux fork >= 0.5.0.9002 in its project library:\n",
-       "  remotes::install_github('jgewirtzman/goFlux@v0.5.0.9002',\n",
+    utils::packageVersion("goFlux") < "0.5.0.9003")
+  stop("This repo needs the goFlux fork >= 0.5.0.9003 in its project library:\n",
+       "  remotes::install_github('jgewirtzman/goFlux@v0.5.0.9003',\n",
        "                          lib = '~/Library/R/ch4-data-filtering-lib', dependencies = FALSE)")
 
 #' Precision of ONE closure (goFlux::empirical.prec, method "hadamard"): robust median-based
@@ -334,4 +334,13 @@ segment_remarks <- function(rec) {
   seg$seg_key <- paste(seg$REMARK, seg$DATE, seg$k, sep = "_")
   rownames(seg) <- NULL
   seg
+}
+
+
+# Closures failing the start-above-ambient validity screen (05_start_screen.R): dropped by 03
+# (stems), 08 and 10 (soils) before any analysis; tracked so that it applies without raw records
+invalid_ids <- function(dataset) {
+  f <- file.path(data_dir, "invalid_closures.csv")
+  if (!file.exists(f)) return(character(0))
+  x <- read.csv(f, stringsAsFactors = FALSE); x$closure[x$dataset == dataset]
 }

@@ -22,7 +22,16 @@ Each folder's README states the source, what was kept and why, and the licence.
 | `from_canopy_study/` | Harvard Forest and Yale-Myers canopy closures (stems, branches, leaves): fluxes and processed concentration traces of three analyzer units | Gewirtzman et al., in review | 01 → 02, 03 | CC BY 4.0 |
 | `from_ymf_soil_zenodo/` | Yale-Myers Forest upland–wetland soil CH₄ fluxes and soil closure windows | Gewirtzman, J. (2026), Zenodo, doi:10.5281/zenodo.18779715 (v0.1.0) | 01, 20 | CC BY 4.0 (as published) |
 | `from_agsoil_study/` | De-identified agricultural-soil CH₄ and N₂O closures | J. Gewirtzman et al., in prep. | 20 | CC BY 4.0 |
+| `from_coastal_wetland_study/` | Coastal-wetland CO₂, CH₄ and N₂O closures (closure-level table and picked windows) | J. A. Rosentreter et al., Southern Cross University; Vienna-Hallam et al. 2026, van Haastregt et al. 2026 | 24, 20 | [to confirm with the data owner] |
 
 `external/` (not in the repository) is an optional local folder for full source files, such as
 the complete soil closure windows of the Zenodo record (`SOIL_WINDOWS`, see
 `from_ymf_soil_zenodo/README.md`).
+
+## `invalid_closures.csv`
+
+Closures removed by the one validity rule that removes data (`scripts/05_start_screen.R`): a detected
+uptake (flux ≤ −MDF) whose concentration at the start of the fitted window is more than 1.5 times the
+air before the chamber was placed. Columns: dataset, gas, closure ID, air before placement (ppb),
+concentration at window start (ppb), flux (nmol m⁻² s⁻¹) and MDF. Written from the raw records and tracked
+so that `03`, `08` and `10` apply it without them.

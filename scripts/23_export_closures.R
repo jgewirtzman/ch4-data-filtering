@@ -15,10 +15,10 @@ load(file.path(output_dir, "03_mdf_results.RData"))
 
 dir.create("results", showWarnings = FALSE)
 
-# Regression interval of the slope (Cowan et al. 2025) with the campaign sigma, for
-# n evenly spaced readings dt seconds apart: sum((t - tbar)^2) = dt^2 n (n^2 - 1) / 12
-sxx <- with(df, dt_s^2 * n_pts * (n_pts^2 - 1) / 12)
-reg_half <- with(df, ifelse(n_pts > 2, qt(0.975, n_pts - 2), NA_real_) * sigma_camp_CH4 / sqrt(sxx) * flux_term)
+# Regression interval half-width of the slope (Cowan et al. 2025) at the campaign sigma:
+# goFlux::flux.class()'s det.reg.half (02b, carried by 03)
+reg_half <- df$CH4_reg_half
+if (is.null(reg_half) || all(is.na(reg_half))) stop("CH4_reg_half missing from 03 output: rerun 03")
 
 out <- df %>%
   transmute(
@@ -30,9 +30,9 @@ out <- df %>%
     species            = SPECIES,
     analyzer           = if_else(year < 2025, "noisier (LGR GLA131)", "precise (LI-COR LI-7810)"),
     air_temp_C         = airt,
-    n_readings         = n_pts,
+    n_readings         = nb_obs_goflux,
     logging_interval_s = dt_s,
-    closure_s          = t_sec,
+    closure_s          = t_sec_est,
     flux_term          = flux_term,
     CH4_flux           = CH4_flux_nmolpm2ps,
     CH4_model          = CH4_model,
@@ -43,8 +43,8 @@ out <- df %>%
     MDF_reference      = CH4_MDF_ref,
     MDF_datasheet      = CH4_MDF_manufacturer,
     detection_class    = case_when(is.na(CH4_MDF_ref) ~ NA_character_,
-                                   CH4_flux_nmolpm2ps >  CH4_MDF_ref ~ "emission",
-                                   CH4_flux_nmolpm2ps < -CH4_MDF_ref ~ "uptake",
+                                   CH4_flux_nmolpm2ps >= CH4_MDF_ref ~ "emission",
+                                   CH4_flux_nmolpm2ps <= -CH4_MDF_ref ~ "uptake",
                                    TRUE ~ "below MDF"),
     reg_half_95        = reg_half,
     lm_p               = lm_p_CH4,

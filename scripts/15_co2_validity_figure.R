@@ -2,14 +2,15 @@
 # =============================================================================
 # 15_co2_validity_figure.R
 #
-# Produces a 4x2 panel figure showing raw concentration timeseries for 4
+# Produces a figure showing raw concentration timeseries for 6
 # example chamber closures, illustrating CO2 as a measurement validity
 # diagnostic (the Validity section of Results; Fig. 5).
 #
-# Layout: 4 columns (measurements) x 2 rows (CO2 top, CH4 bottom)
+# Layout: two blocks of 3 closures, each a CO2 row over a CH4 row
 #
 # Reads: data/from_hf_stem_study/figure_closures/fig5_co2_tracer.csv (the closures' raw readings,
-#        written by 14_figure_closures.R; no access to the raw archive)
+#        and fig5_context.csv (uptake closures and pre-closure ambient), both written by
+#        14_figure_closures.R; no access to the raw archive)
 # =============================================================================
 
 library(ggplot2)
@@ -22,13 +23,14 @@ source("scripts/style.R")
 # =============================================================================
 
 measurements <- data.frame(
-  panel_label = c("(a) High signal", "(b) Below detection",
-                  "(c) No signal", "(d) Ambiguous"),
-  UniqueID    = c("45509_414", "45489_153", "45580_439", "45610_414"),
-  date_str    = c("2024-08-05", "2024-07-16", "2024-10-15", "2024-11-14"),
-  comp_start  = c("11:28:30", "12:04:13", "13:02:55", "11:31:00"),
-  comp_end    = c("11:31:30", "12:07:13", "13:05:55", "11:34:00"),
-  valid_co2   = c(TRUE, TRUE, FALSE, FALSE),
+  panel_label = c("(a) High signal", "(b) Below detection", "(c) Uptake",
+                  "(d) No signal", "(e) Start above ambient", "(f) Ambiguous"),
+  stem_id     = c("s0752", "s0716", "s1135", "s0933", "s1332", "s1059"),
+  # closures of the noisier analyzer read from fig5_co2_tracer.csv (as published);
+  # the others (NA) from the windows in fig5_context.csv
+  UniqueID    = c("45509_414", "45489_153", NA, "45580_439", NA, "45610_414"),
+  date_str    = c("2024-08-05", "2024-07-16", "2024-12-03", "2024-10-15", "2025-06-05", "2024-11-14"),
+  comp_start  = c("11:28:30", "12:04:13", NA, "13:02:55", NA, "11:31:00"),
   stringsAsFactors = FALSE
 )
 
@@ -37,17 +39,25 @@ MAX_ELAPSED_S <- 180
 
 # Column titles; the verdict is also carried by a soft background tint per column
 panel_exprs <- list(
-  "**Valid**",
-  "**Valid**, CH<sub>4</sub> below MDF",
-  "**Invalid**",
-  "**Ambiguous**"
+  "**Valid**: both gases rise",
+  "**Valid**: CO<sub>2</sub> rises, CH<sub>4</sub> below MDF",
+  "**Valid**: CO<sub>2</sub> rises, CH<sub>4</sub> taken up",
+  "**Suspect**: no CO<sub>2</sub> rise (kept)",
+  "**Suspect**: CH<sub>4</sub> starts above ambient (kept)",
+  "**Unusual**: CH<sub>4</sub> rises, CO<sub>2</sub> flat"
 )
 
-# Readings of the four closures inside their computation windows (180 s), extracted
-# from the raw LGR1 records by 14_figure_closures.R
+# Readings of the noisier-analyzer closures inside their computation windows (180 s),
+# extracted from the raw LGR1 records by 14_figure_closures.R
 fig5_raw <- read.csv(file.path("data", "from_hf_stem_study", "figure_closures", "fig5_co2_tracer.csv"),
                      stringsAsFactors = FALSE,
                      colClasses = c(time_s = "numeric", CO2d_ppm = "numeric", CH4d_ppm = "numeric"))
+# Each closure's extracted record from 60 s before its window (flag 1) to the window's end
+fig5_ctx <- read.csv(file.path("data", "from_hf_stem_study", "figure_closures", "fig5_context.csv"),
+                     stringsAsFactors = FALSE)
+# CH4 before the chamber was placed: median of the record's first 10 s
+ambient_ch4 <- fig5_ctx %>% group_by(stem_id) %>% arrange(time_s, .by_group = TRUE) %>%
+  summarise(amb = median(head(CH4d_ppb, 10)), .groups = "drop")
 
 # =============================================================================
 # 2. Subset each closure to its computation window
@@ -63,9 +73,15 @@ read_window <- function(id, date_str, comp_start) {
                     CH4_ppb   = w$CH4d_ppm * 1000)
   out[out$elapsed_s >= 0 & out$elapsed_s <= MAX_ELAPSED_S, ]
 }
+read_context_window <- function(stem) {
+  w <- fig5_ctx[fig5_ctx$stem_id == stem & fig5_ctx$flag == 1, ]
+  if (nrow(w) == 0) stop("No readings for ", stem, " in fig5_context.csv")
+  out <- data.frame(elapsed_s = w$time_s - min(w$time_s), CO2_ppm = w$CO2d_ppm, CH4_ppb = w$CH4d_ppb)
+  out[out$elapsed_s <= MAX_ELAPSED_S, ]
+}
 
 # =============================================================================
-# 3. Read all 4 measurements
+# 3. Read all measurements
 # =============================================================================
 
 all_data <- list()
@@ -73,14 +89,11 @@ all_data <- list()
 for (i in seq_len(nrow(measurements))) {
   cat("Reading measurement:", measurements$panel_label[i], "\n")
 
-  df <- read_window(
-    id         = measurements$UniqueID[i],
-    date_str   = measurements$date_str[i],
-    comp_start = measurements$comp_start[i]
-  )
+  df <- if (is.na(measurements$UniqueID[i])) read_context_window(measurements$stem_id[i]) else
+    read_window(id = measurements$UniqueID[i], date_str = measurements$date_str[i],
+                comp_start = measurements$comp_start[i])
 
   df$panel       <- measurements$panel_label[i]
-  df$valid_co2   <- measurements$valid_co2[i]
   df$panel_order <- i
 
   all_data[[i]] <- df
@@ -137,7 +150,7 @@ for (i in seq_len(nrow(measurements))) {
 # =============================================================================
 
 # Define validity background colors
-bg_by_panel <- c("#ebf3ed", "#ebf3ed", "#f8ebe4", "#f1f1ef")  # valid, valid, invalid, ambiguous
+bg_by_panel <- c("#ebf3ed", "#ebf3ed", "#ebf3ed", "#f1f1ef", "#f1f1ef", "#f1f1ef")  # valid x3; suspect x2, unusual (all kept)
 
 # Helper function to create individual panel
 make_panel <- function(panel_idx, gas, y_col, y_lab, show_y_axis,
@@ -154,21 +167,26 @@ make_panel <- function(panel_idx, gas, y_col, y_lab, show_y_axis,
 
   # Compute axis ranges for annotation placement
   x_range <- range(sub$elapsed_s)
-  y_range <- range(sub[[y_col]])
+  amb <- if (gas == "CH4") ambient_ch4$amb[ambient_ch4$stem_id == measurements$stem_id[panel_idx]] else numeric(0)
+  y_range <- range(c(sub[[y_col]], amb))
   y_span  <- diff(y_range)
 
   # Pad y range slightly so annotation does not clip
   if (y_span < 1e-6) y_span <- abs(y_range[1]) * 0.1 + 1
 
   # Place R2 label in top-left corner
+  # (bottom-left for a falling trace, which leaves that corner empty)
   ann_x <- x_range[1] + 0.05 * diff(x_range)
-  ann_y <- y_range[2] - 0.05 * y_span
+  falling <- st$slope < 0 && st$r2 > 0.3
+  ann_y <- if (falling) y_range[1] + 0.05 * y_span else y_range[2] - 0.05 * y_span
 
   p <- ggplot(sub, aes(x = elapsed_s, y = .data[[y_col]])) +
     # Background rectangle for validity tinting
     annotate("rect",
              xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf,
              fill = bg_color) +
+    # CH4 before the chamber was placed
+    { if (length(amb)) geom_hline(yintercept = amb, colour = MUTED, linetype = "dashed", linewidth = 0.4) } +
     # Raw data points
     geom_point(size = 0.4, alpha = 0.7, color = INK2) +
     # Linear regression line
@@ -177,7 +195,7 @@ make_panel <- function(panel_idx, gas, y_col, y_lab, show_y_axis,
     # R-squared annotation (parsed expression; default thin label border, as published)
     annotate("label", x = ann_x, y = ann_y, fill = scales::alpha("white", 0.8),
              label = deparse(r2_text), parse = TRUE,
-             hjust = 0, vjust = 1, size = 2.5,
+             hjust = 0, vjust = if (falling) 0 else 1, size = 2.5,
              color = INK) +
     theme_paper(base_size = 8) +
     theme(plot.margin = margin(2, 4, 2, 2))
@@ -201,7 +219,7 @@ make_panel <- function(panel_idx, gas, y_col, y_lab, show_y_axis,
   # Panel title (column header; markdown via ggtext)
   if (show_title) {
     p <- p + ggtitle(panel_exprs[[panel_idx]]) +
-      theme(plot.title = ggtext::element_markdown(size = 8, hjust = 0))
+      theme(plot.title = ggtext::element_markdown(size = 7.5, hjust = 0))
   }
 
   return(p)
@@ -211,7 +229,7 @@ make_panel <- function(panel_idx, gas, y_col, y_lab, show_y_axis,
 panels <- list()
 
 for (i in seq_len(nrow(measurements))) {
-  show_y <- (i == 1)
+  show_y <- (i %in% c(1, 4))
 
   # CO2 panel (top row)
   panels[[paste0("co2_", i)]] <- make_panel(
@@ -236,14 +254,13 @@ for (i in seq_len(nrow(measurements))) {
   )
 }
 
-# Assemble with patchwork: top row (CO2), then bottom row (CH4)
-top_row <- panels$co2_1 + panels$co2_2 + panels$co2_3 + panels$co2_4 +
-  plot_layout(nrow = 1)
-
-bottom_row <- panels$ch4_1 + panels$ch4_2 + panels$ch4_3 + panels$ch4_4 +
-  plot_layout(nrow = 1)
-
-full_fig <- (top_row / bottom_row) + plot_annotation(tag_levels = list(c("a", "b", "c", "d", "", "", "", ""))) &
+# Assemble with patchwork: valid closures (a-c) above, invalid and ambiguous (d-f) below;
+# each block a CO2 row over a CH4 row
+row_of <- function(gas, idx) wrap_plots(panels[paste0(gas, "_", idx)], nrow = 1)
+full_fig <- (row_of("co2", 1:3) / row_of("ch4", 1:3) / plot_spacer() / row_of("co2", 4:6) / row_of("ch4", 4:6)) +
+  plot_layout(heights = c(1, 1, 0.08, 1, 1))
+tags <- c("a", "b", "c", "", "", "", "d", "e", "f", "", "", "")
+full_fig <- full_fig + plot_annotation(tag_levels = list(tags)) &
   theme(plot.tag = element_text(face = "bold", size = 9))
 
 # =============================================================================
@@ -256,10 +273,10 @@ dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 out_png <- file.path(fig_dir, "co2_validity_examples.png")
 out_pdf <- file.path(fig_dir, "co2_validity_examples.pdf")
 
-ggsave(out_png, full_fig, width = 7.5, height = 3.9, dpi = 300)
+ggsave(out_png, full_fig, width = 7.5, height = 7.2, dpi = 300)
 cat("\nSaved PNG:", out_png, "\n")
 
-ggsave(out_pdf, full_fig, width = 7.5, height = 3.9)
+ggsave(out_pdf, full_fig, width = 7.5, height = 7.2)
 cat("Saved PDF:", out_pdf, "\n")
 
 cat("\nDone.\n")

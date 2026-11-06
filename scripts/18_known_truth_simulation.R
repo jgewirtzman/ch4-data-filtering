@@ -72,16 +72,21 @@ for (an in names(SIGMAS)) {
     est <- list(`Keep all (flag)` = d$flux,
                 `Set below MDF to zero` = ifelse(below, 0, d$flux),
                 `Remove below MDF` = ifelse(below, NA, d$flux),
+                `Remove p ≥ 0.05` = ifelse(d$p >= 0.05, NA, d$flux),
                 `Remove R² ≤ 0.5` = ifelse(lowr2, NA, d$flux))
     truth_mean <- mean(d$true); truth_med <- median(d$true)
-    truth_bud <- sum(tapply(d$true, d$month, mean))
+    # budgets: each month's mean times its length in days, summed over the months with data under
+    # the treatment; the true budget over the same months (no month is filled)
+    days <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    tm <- tapply(d$true, d$month, mean)
     for (k in names(est)) {
       v <- est[[k]]
       score[[length(score) + 1]] <- data.frame(
         analyzer = an, year = y, treatment = k,
         mean = 100 * (mean(v, na.rm = TRUE) / truth_mean - 1),
         median = 100 * (median(v, na.rm = TRUE) / truth_med - 1),
-        budget = 100 * (sum(local({b <- tapply(v, d$month, mean, na.rm = TRUE); b[!is.finite(b)] <- 0; b})) / truth_bud - 1),   # empty month = 0, as in script 10
+        budget = 100 * (local({b <- tapply(v, d$month, mean, na.rm = TRUE); ok <- is.finite(b)
+                               sum(b[ok] * days[ok]) / sum(tm[ok] * days[ok])}) - 1),
         removed_cold = 100 * mean(is.na(v[d$month %in% c(1:3, 11:12)])),
         removed_warm = 100 * mean(is.na(v[d$month %in% 6:8])),
         mdf = median(mdf))
@@ -89,7 +94,7 @@ for (an in names(SIGMAS)) {
   }
 }
 score <- do.call(rbind, score)
-score$treatment <- factor(score$treatment, levels = c("Keep all (flag)", "Set below MDF to zero", "Remove below MDF", "Remove R² ≤ 0.5"))
+score$treatment <- factor(score$treatment, levels = c("Keep all (flag)", "Set below MDF to zero", "Remove below MDF", "Remove p ≥ 0.05", "Remove R² ≤ 0.5"))
 truth_summary <- score %>% group_by(analyzer, treatment) %>%
   summarise(across(c(mean, median, budget, removed_cold, removed_warm),
                    list(med = ~ median(.x, na.rm = TRUE), lo = ~ quantile(.x, 0.05, na.rm = TRUE), hi = ~ quantile(.x, 0.95, na.rm = TRUE))),
@@ -101,7 +106,7 @@ calib <- list()
 for (noise in c("white", "red")) {
   d0 <- process(rep(0, 20000), 1, noise)
   mdf0 <- Z95 * median(d0$sig_i) / T_SEC * FLUX_TERM
-  calib[[noise]] <- data.frame(noise = noise, criterion = c("|flux| > MDF", "p < 0.05"),
+  calib[[noise]] <- data.frame(noise = noise, criterion = c("|flux| ≥ MDF", "p < 0.05"),
                                false_pos = 100 * c(mean(abs(d0$flux) > mdf0), mean(d0$p < 0.05)))
 }
 calib <- do.call(rbind, calib)
@@ -111,7 +116,7 @@ pow <- do.call(rbind, lapply(c("white", "red"), function(noise) {
   do.call(rbind, lapply(c(0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1, 1.5, 2), function(r) {
     d1 <- process(rep(r * mdf0, 4000), 1, noise)
     data.frame(noise = noise, ratio = r,
-               crit = c("|flux| > MDF", "p < 0.05"),
+               crit = c("|flux| ≥ MDF", "p < 0.05"),
                detected = 100 * c(mean(abs(d1$flux) > mdf0), mean(d1$p < 0.05)))
   }))
 }))
@@ -122,10 +127,11 @@ grp <- do.call(rbind, lapply(seq_len(100), function(y) {
     d <- do.call(rbind, lapply(1:12, function(m) cbind(month = m, process(true_flux(N_MONTH / 2, temp_m[m]) * mult, SIGMAS[["Noisier analyzer"]]))))
     mdf <- Z95 * ave(d$sig_i, d$month, FUN = median) / T_SEC * FLUX_TERM
     data.frame(year = y, group = ifelse(mult == 1, "low", "high"), truth = mean(d$true),
-               keep = mean(d$flux), remove_mdf = mean(d$flux[abs(d$flux) >= mdf]), remove_r2 = mean(d$flux[d$r2 > 0.5]))
+               keep = mean(d$flux), remove_mdf = mean(d$flux[abs(d$flux) >= mdf]), remove_p = mean(d$flux[d$p < 0.05]),
+               remove_r2 = mean(d$flux[d$r2 > 0.5]))
   }))
 }))
-ratio <- grp %>% tidyr::pivot_longer(c(truth, keep, remove_mdf, remove_r2), names_to = "what", values_to = "m") %>%
+ratio <- grp %>% tidyr::pivot_longer(c(truth, keep, remove_mdf, remove_p, remove_r2), names_to = "what", values_to = "m") %>%
   tidyr::pivot_wider(names_from = group, values_from = m) %>% mutate(ratio = high / low) %>%
   group_by(what) %>% summarise(ratio_med = median(ratio), lo = quantile(ratio, .05), hi = quantile(ratio, .95), .groups = "drop")
 print(ratio)
@@ -139,6 +145,7 @@ sweep <- do.call(rbind, lapply(c(0.05, 0.1, 0.25, 0.5, 1, 2, 3.6, 6, 10), functi
     data.frame(sigma = sg, pct_below = 100 * mean(below),
                mean_change_mdf = 100 * (mean(d$flux[!below]) / mean(d$flux) - 1),
                mean_change_r2 = 100 * (mean(d$flux[d$r2 > 0.5]) / mean(d$flux) - 1),
+               mean_change_p = 100 * (mean(d$flux[d$p < 0.05]) / mean(d$flux) - 1),
                median_change_mdf = 100 * (abs(median(d$flux[!below])) / abs(median(d$flux)) - 1),
                median_change_r2 = 100 * (abs(median(d$flux[d$r2 > 0.5])) / abs(median(d$flux)) - 1))
   }))
@@ -153,7 +160,7 @@ sl <- score %>% tidyr::pivot_longer(c(mean, median, budget), names_to = "stat", 
   mutate(stat = factor(recode(stat, mean = "Mean", median = "Median", budget = "Annual budget"),
                        levels = c("Mean", "Median", "Annual budget")))
 pal_t <- c("Keep all (flag)" = COL$keep, "Set below MDF to zero" = COL$zero,
-           "Remove below MDF" = COL$mdf, "Remove R² ≤ 0.5" = COL$r2)
+           "Remove below MDF" = COL$mdf, "Remove p ≥ 0.05" = COL$reg, "Remove R² ≤ 0.5" = COL$r2)
 s1 <- ggplot(sl, aes(treatment, err, colour = treatment)) +
   geom_hline(yintercept = 0, colour = AXIS) +
   stat_summary(fun = median, fun.min = function(v) quantile(v, .05), fun.max = function(v) quantile(v, .95),
@@ -168,7 +175,7 @@ s1 <- ggplot(sl, aes(treatment, err, colour = treatment)) +
 s2 <- ggplot(pow, aes(ratio, detected, colour = crit, linetype = noise)) +
   geom_hline(yintercept = c(5), colour = AXIS) +
   geom_line(linewidth = 0.6) + geom_point(size = 1) +
-  scale_colour_manual(values = c("|flux| > MDF" = COL$mdf, "p < 0.05" = COL$reg), name = NULL) +
+  scale_colour_manual(values = c("|flux| ≥ MDF" = COL$mdf, "p < 0.05" = COL$reg), name = NULL) +
   scale_linetype_manual(values = c(white = "solid", red = "22"), name = NULL, breaks = c("white", "red"),
                         labels = c(white = "white noise", red = "correlated noise")) +
   labs(x = "True flux / MDF", y = "% of closures detected") +
@@ -179,3 +186,7 @@ sfig <- (s1 | s2) + plot_layout(widths = c(2.2, 1)) + plot_annotation(tag_levels
 ggsave(file.path(fig_dir, "known_truth_simulation.png"), sfig, width = 7.5, height = 4.2, dpi = 300)
 ggsave(file.path(fig_dir, "known_truth_simulation.pdf"), sfig, width = 7.5, height = 4.2)
 message("Saved known_truth_simulation")
+# Supplement (detection): the power curves alone; the treatment errors are in main-text Fig. 6d
+s2b <- s2 + theme(legend.position = "right", legend.box = "vertical")
+ggsave(file.path(fig_dir, "si_detection_power.png"), s2b, width = 5, height = 3, dpi = 300)
+ggsave(file.path(fig_dir, "si_detection_power.pdf"), s2b, width = 5, height = 3)

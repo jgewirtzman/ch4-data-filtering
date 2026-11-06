@@ -23,7 +23,7 @@ load(file.path(output_dir, "03_mdf_results.RData"))
 
 # 1. Soils along an upland-wetland gradient
 soil <- soil_flux %>%
-  filter(measurement_type == "soil", !is.na(CH4_best_flux_nmol_m2_s)) %>%
+  filter(measurement_type == "soil", !unique_id %in% invalid_ids("Soils"), !is.na(CH4_best_flux_nmol_m2_s)) %>%
   mutate(flux = CH4_best_flux_nmol_m2_s, dataset = "Upland–wetland soils")
 
 # 2. Forest stem fluxes (both analyzers)

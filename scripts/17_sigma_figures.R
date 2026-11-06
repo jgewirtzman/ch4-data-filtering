@@ -92,7 +92,10 @@ wk <- read.csv(file.path(fig_closures_dir, "fig2_sigma_day.csv"), stringsAsFacto
 wk_s <- wk %>% group_by(UniqueID) %>%
   summarise(slope = unname(coef(lm(CH4dry_ppb ~ t))[2]),
             sigma_i = sigma_closure(CH4dry_ppb, POSIX.time), .groups = "drop")
-wk_pick <- c("s1307" = "Near zero", "s1289" = "Moderate", "s1295" = "Large")
+# three closures whose sigma_i lie near the day's median, so that the example does not suggest that
+# sigma_i follows the flux (across all stem closures it barely does: flat over the lower 90 % of fluxes,
+# about 20-30 % higher in the largest 10 %, which run at much higher concentrations)
+wk_pick <- c("s1293" = "Near zero", "s1312" = "Moderate", "s1297" = "Large")
 pal3 <- setNames(RAMP_BLUE, wk_pick)
 ex3 <- wk %>% filter(UniqueID %in% names(wk_pick)) %>% mutate(cl = factor(wk_pick[UniqueID], levels = wk_pick)) %>%
   group_by(cl) %>% mutate(x0 = CH4dry_ppb - CH4dry_ppb[1]) %>% ungroup()
@@ -130,6 +133,37 @@ pd <- ggplot(wk_s, aes(sigma_i, rank)) +
   scale_y_continuous(breaks = NULL, expand = expansion(add = c(0.6, 2.6))) +
   labs(x = expression(sigma[i]~"of each closure that day (ppb)"), y = NULL) + th
 
+# panels for the merged precision-and-detection figure (19_main_figures.R): (a) the readings of each
+# closure on its own axis, so that the noise is visible next to the flux
+pa_raw <- ggplot(ex3 %>% mutate(cl = factor(cl, levels = rev(levels(cl)))), aes(t, CH4dry_ppb, colour = cl)) +
+  geom_point(size = 0.25) +   # large on top, near zero at the bottom
+  facet_wrap(~ cl, ncol = 1, scales = "free_y", strip.position = "right") +
+  scale_colour_manual(values = pal3, guide = "none") +
+  labs(x = NULL, y = expression(CH[4]~"reading (ppb)")) + th +
+  theme(axis.text.x = element_blank(), strip.text.y = element_text(angle = 0, hjust = 0, size = 7),
+        axis.text.y = element_text(size = 6))
+# (c) with each closure's sigma_i written beside it and the day's campaign sigma (median of every
+# closure's sigma_i) as a band of +/- sigma about zero
+lab_b <- wk_s %>% filter(!is.na(cl)) %>% mutate(cl = factor(cl, levels = wk_pick)) %>%
+  left_join(w1 %>% group_by(cl) %>% summarise(lvl = median(d), x = max(t), .groups = "drop"), by = "cl") %>%
+  arrange(desc(cl)) %>%
+  mutate(txt = sprintf("%s: %.2f ppb per reading", tolower(as.character(cl)), lvl), y = 1.95 - (row_number() - 1) * 0.17)
+pb_lab <- pb + geom_text(data = lab_b, aes(x = x, y = y, label = txt, colour = cl), hjust = 1, size = 2.2,
+                         inherit.aes = FALSE) + scale_y_continuous(limits = c(min(w1$d), 2.05))
+lab_c <- wk_s %>% filter(!is.na(cl)) %>% mutate(cl = factor(cl, levels = wk_pick)) %>% arrange(desc(cl)) %>%
+  mutate(txt = sprintf("%s: σ = %.2f ppb", tolower(as.character(cl)), sigma_i), y = 4.6 - (row_number() - 1) * 0.5,
+         x = max(w2$t), col = unname(pal3[as.character(cl)]))
+pc_sig <- ggplot(w2, aes(t, d, colour = cl)) +
+  geom_hline(yintercept = 0, colour = AXIS) + geom_line(linewidth = 0.35) +
+  geom_text(data = lab_c, aes(x = x, y = y, label = txt, colour = cl), hjust = 1, size = 2.3, inherit.aes = FALSE) +
+  annotate("text", x = max(w2$t), y = -3.1, hjust = 1, size = 2.3, colour = INK, fontface = "bold",
+           label = sprintf("campaign σ = %.3f ppb", wk_sig)) +
+  annotate("text", x = max(w2$t), y = -3.65, hjust = 1, size = 2.1, colour = INK2,
+           label = sprintf("(median over the day's %d closures)", nrow(wk_s))) +
+  scale_colour_manual(values = pal3, guide = "none") + scale_y_continuous(limits = c(-3.9, 4.8), breaks = -3:3) +
+  labs(x = "Time in closure (s)", y = "Second difference (ppb)") + th
+saveRDS(list(a = pa_raw, b = pb_lab, c = pc_sig, d = pd, campaign_sigma = wk_sig,
+             time_axis = "Time in closure (s)"), file.path(output_dir, "17_sigma_panels.rds"))
 fig <- ((pa / pb / pc) | pd) + plot_layout(widths = c(1.7, 1)) +
   plot_annotation(tag_levels = "a") & theme(plot.tag = element_text(face = "bold", size = 9))
 ggsave(file.path(fig_dir, "sigma_explained.png"), fig, width = 7.5, height = 5.6, dpi = 300)
@@ -141,22 +175,29 @@ message("Saved fig_sigma_explained (example closure ", ex_id, ", ", ex_day, ")")
 # analyzer closures picked above (ex_lo, ex_hi), written to figures/worked_example.json
 # ---------------------------------------------------------------------------
 cb <- as.data.frame(fit_env$ch4_best)
+# closure length, flux term, campaign sigma, MDF and class are those of the analysis (03; the flux term
+# is goFlux's), so that the worked example and every result use one definition
+d03 <- local({ e <- new.env(); load(file.path(output_dir, "03_mdf_results.RData"), envir = e); e$df })
 worked <- lapply(list(low = ex_lo, high = ex_hi), function(r) {
   id <- r$UniqueID; tt <- r$t[[1]]; xx <- r$x[[1]]
   f <- cb[cb$UniqueID == id, ][1, ]
+  a <- d03[d03$stem_id == id, ][1, ]
+  f$det.t <- a$t_sec_est; f$flux.term <- a$flux_term; f$det.prec <- a$sigma_camp_CH4; f$det.MDF <- a$CH4_MDF_ref
+  f$best.flux <- a$CH4_flux_nmolpm2ps
+  f$det.class <- if (f$best.flux >= f$det.MDF) "emission" else if (f$best.flux <= -f$det.MDF) "uptake" else "below MDF"
   g <- manID[manID$UniqueID == id & manID$flag == 1, ][1, ]
   dd1 <- diff(xx); dd2 <- diff(xx, differences = 2)
-  sxx <- sum((tt - mean(tt))^2); nn <- length(xx)
-  se_plan <- f$det.prec / sqrt(sxx) * f$flux.term                 # Cowan et al. (2025), campaign sigma
-  list(UniqueID = id, date = ex_day, n = nn, dt = logging_interval(as.POSIXct(tt, origin = "1970-01-01")),
-       span = diff(range(tt)), t = f$det.t, rise = tail(xx, 1) - head(xx, 1), slope = r$slope,
+  # steps 1 and 6 (readings, slope, straight-line flux, interval) are goFlux's fit of the window
+  list(UniqueID = id, date = ex_day, n = as.numeric(f$nb.obs), n_raw = length(xx), dt = logging_interval(as.POSIXct(tt, origin = "1970-01-01")),
+       span = diff(range(tt)), t = f$det.t, rise = tail(xx, 1) - head(xx, 1), slope = as.numeric(f$LM.slope),
        d1_median = median(dd1), d1_sd = sd(dd1), d1_mad_sigma = mad(dd1) / sqrt(2),
        d2_mad_raw = mad(dd2, constant = 1), sigma_i = r$sigma_i,
        sigma_campaign = f$det.prec, z = Z95, dC = Z95 * f$det.prec, rate = Z95 * f$det.prec / f$det.t,
        Vtot_L = g$Vtot, Area_cm2 = g$Area, Pcham_kPa = g$Pcham, Tcham_C = g$Tcham,
        flux_term = f$flux.term, MDF = f$det.MDF, flux = f$best.flux, model = f$model,
        ratio = f$best.flux / f$det.MDF, class = f$det.class,
-       cowan_half = qt(0.975, nn - 2) * se_plan, lm_half = qt(0.975, nn - 2) * f$LM.SE, lm_p = f$LM.p.val)
+       cowan_half = a$CH4_reg_half, lm_half = qt(0.975, f$nb.obs - 2) * f$LM.SE,
+       lm_p = f$LM.p.val, lm_flux = f$LM.flux)
 })
 worked$day <- list(n_closures = nrow(day_rows), sigma_median = sig_day, sigma_min = min(day_rows$sigma_i, na.rm = TRUE),
                    sigma_max = max(day_rows$sigma_i, na.rm = TRUE), whole_record = wr_day)
@@ -165,7 +206,7 @@ jsonlite::write_json(worked, file.path(fig_dir, "worked_example.json"), auto_unb
 wedge <- do.call(rbind, lapply(c("low", "high"), function(k) {
   w <- worked[[k]]; r <- if (k == "low") ex_lo else ex_hi
   data.frame(closure = ifelse(k == "low", sprintf("Flux near the MDF (%.2f \u00d7 MDF)", w$ratio), sprintf("Large flux (%.0f \u00d7 MDF)", w$ratio)),
-             t = r$t[[1]], y = r$x[[1]] - r$x[[1]][1], mdf_rate = w$MDF / w$flux_term, slope = r$slope) }))
+             t = r$t[[1]], y = r$x[[1]] - r$x[[1]][1], mdf_rate = w$MDF / w$flux_term, slope = w$slope) }))
 wedge$closure <- factor(wedge$closure, levels = unique(wedge$closure))
 we <- ggplot(wedge, aes(t, y)) +
   geom_ribbon(data = wedge, aes(x = t, ymin = -mdf_rate * t, ymax = mdf_rate * t), inherit.aes = FALSE,

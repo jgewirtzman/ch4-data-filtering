@@ -27,10 +27,13 @@ TINT_NEU <- "#f3f3f2" # neutral tint: dormant season / shaded region
 COL <- list(
   mdf      = "#3d6f8e",   # slate blue
   r2       = "#c2683f",   # terracotta
-  reg      = "#5b9a85",   # sage teal
+  reg      = "#5b9a85",   # sage teal: regression / slope p-value
   datasheet = GREY_D,
   keep     = INK,
-  zero     = GREY_D,
+  zero     = "#b9b9b5",   # light grey: set to zero
+  outlier  = "#7b4f8e",   # plum: outlier removal
+  median   = "#a08466",   # taupe: median
+  gmean    = "#b0892f",   # ochre: geometric mean
   A        = INK,         # noisier analyzer: black (solid lines / filled marks)
   B        = "#8c8c88"    # precise analyzer: grey (dashed lines / open marks)
 )

@@ -1,5 +1,5 @@
 # ============================================================================
-# 02b_goflux_fluxes.R — Re-fit every stem closure with the goFlux fork (v0.5.0.9002)
+# 02b_goflux_fluxes.R — Re-fit every stem closure with the goFlux fork (v0.5.0.9003)
 #
 # Replaces the legacy fluxes in HF_2023-2025_tree_flux_corrected.csv (the source
 # study's OLS on the field-log window for 2023-24; a 60-s best-CO2-R2 sub-window of the
@@ -29,7 +29,7 @@
 # ============================================================================
 
 source("scripts/00_setup.R")
-suppressPackageStartupMessages(library(goFlux))   # fork >= 0.5.0.9002 (checked in 00_setup)
+suppressPackageStartupMessages(library(goFlux))   # fork >= 0.5.0.9003 (checked in 00_setup)
 
 message("\n=== Loading 02 results ===")
 load(file.path(output_dir, "02_allan_deviation.RData"))
@@ -348,7 +348,7 @@ pdf_ok <- tryCatch({
 }, error = function(e) { message("  (review plots not written: ", conditionMessage(e), ")"); FALSE })
 
 settings <- list(goFlux = as.character(packageVersion("goFlux")),
-                 goFlux_source = "https://github.com/jgewirtzman/goFlux v0.5.0.9002 (doi:10.5281/zenodo.23256675)",
+                 goFlux_source = "https://github.com/jgewirtzman/goFlux v0.5.0.9003 (doi:10.5281/zenodo.23383778)",
                  window = "field-log comp_start..comp_end (LGR) / REMARK run (LI-7810); no dead band",
                  shoulder_s = 60, best.flux = best_args,
                  detection = "flux.class: prec = analyzer x day campaign sigma (closure median of second-difference precision, 02), conf = 0.95 (z = 1.96 benchmark), t = closure.time",
