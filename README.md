@@ -101,4 +101,4 @@ Versions used for the paper: R 4.4.3; dplyr 1.2.0, tidyr 1.3.2, tibble 3.3.1, gg
 
 ## Licence
 
-Code: MIT (`LICENSE`). Data: each copy in `data/` stays under its source's licence (CC BY 4.0; for the coastal-wetland data, terms to be confirmed with the data owner); derived results in `data/derived_from_stem_raw/` and `results/`: CC BY 4.0. See `LICENSE-data`, which also repeats that these are copies, not new data.
+Code: MIT (`LICENSE`). Data: each copy in `data/` stays under its source's licence (CC BY 4.0); derived results in `data/derived_from_stem_raw/` and `results/`: CC BY 4.0. See `LICENSE-data`, which also repeats that these are copies, not new data.
